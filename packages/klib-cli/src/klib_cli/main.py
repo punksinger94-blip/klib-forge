@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 import typer
 from klib_core import ForgeEngine, LibraryManager
+from klib_core.benchmarks import (
+    BIOLOGY_BENCHMARK_ID,
+    BIOLOGY_BENCHMARK_MODEL,
+    install_biology_benchmark,
+)
 from klib_core.errors import KlibError
 from klib_core.providers import get_provider
 
@@ -218,6 +224,84 @@ def run_evals(
     )
 
 
+@app.command("nvidia-ab")
+def run_nvidia_ab(
+    model: str = typer.Option(
+        BIOLOGY_BENCHMARK_MODEL,
+        help="NVIDIA model id used for both conditions.",
+    ),
+    repeats: int = typer.Option(1, min=1, max=10),
+    crossover: bool = typer.Option(
+        False,
+        "--crossover/--no-crossover",
+        help="Repeat with the two API key slots swapped.",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        help="Optional path for a combined JSON report.",
+    ),
+) -> None:
+    """Compare a raw NVIDIA model with the same model plus a biology K-LIB."""
+
+    def action() -> None:
+        baseline_key = os.getenv("NVIDIA_BASELINE_API_KEY")
+        klib_key = os.getenv("NVIDIA_KLIB_API_KEY")
+        if not baseline_key or not klib_key:
+            raise KlibError(
+                "Set NVIDIA_BASELINE_API_KEY and NVIDIA_KLIB_API_KEY in the "
+                "current process before running this command"
+            )
+
+        forge = manager()
+        library_path = install_biology_benchmark(forge, model=model)
+        comparison_engine = ForgeEngine(forge)
+        reports = [
+            comparison_engine.compare_evals(
+                BIOLOGY_BENCHMARK_ID,
+                provider="nvidia",
+                model=model,
+                baseline_api_key=baseline_key,
+                klib_api_key=klib_key,
+                base_url="https://integrate.api.nvidia.com/v1",
+                repeats=repeats,
+                baseline_key_label="NVIDIA_BASELINE_API_KEY",
+                klib_key_label="NVIDIA_KLIB_API_KEY",
+            )
+        ]
+        if crossover:
+            reports.append(
+                comparison_engine.compare_evals(
+                    BIOLOGY_BENCHMARK_ID,
+                    provider="nvidia",
+                    model=model,
+                    baseline_api_key=klib_key,
+                    klib_api_key=baseline_key,
+                    base_url="https://integrate.api.nvidia.com/v1",
+                    repeats=repeats,
+                    baseline_key_label="NVIDIA_KLIB_API_KEY",
+                    klib_key_label="NVIDIA_BASELINE_API_KEY",
+                )
+            )
+
+        result = {
+            "library_path": str(library_path),
+            "model": model,
+            "crossover": crossover,
+            "reports": reports,
+        }
+        if output:
+            destination = output.expanduser().resolve()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(
+                json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            result["combined_report_path"] = str(destination)
+        emit(result)
+
+    run_command(action)
+
+
 @app.command("diff")
 def diff_library(
     library: str | None = typer.Option(None, "--library", "-l"),
@@ -263,6 +347,10 @@ def models() -> None:
         [
             {"provider": "ollama", "default_base_url": "http://localhost:11434/v1"},
             {"provider": "lmstudio", "default_base_url": "http://localhost:1234/v1"},
+            {
+                "provider": "nvidia",
+                "default_base_url": "https://integrate.api.nvidia.com/v1",
+            },
             {"provider": "openai", "default_base_url": "https://api.openai.com/v1"},
             {"provider": "openai-compatible", "default_base_url": "OPENAI_BASE_URL"},
             {"provider": "mock", "default_base_url": None},

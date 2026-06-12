@@ -85,6 +85,28 @@ The Windows installer is generated under:
 apps/desktop/src-tauri/target/release/bundle/nsis/
 ```
 
+## NVIDIA biological A/B benchmark
+
+The controlled benchmark compares:
+
+- NVIDIA API key slot 1: the selected model with no K-LIB context
+- NVIDIA API key slot 2: the same model, generation settings, and questions with
+  the synthetic Vesperomyces biology K-LIB
+
+Run it through the secure prompt wrapper:
+
+```powershell
+.\scripts\run-nvidia-biological-ab.ps1 `
+  -Model "meta/llama-3.3-70b-instruct" `
+  -Repeats 3 `
+  -Crossover
+```
+
+The wrapper masks both new keys, keeps them in process memory only, and writes
+the report under `build/experiments/`, which Git ignores. The crossover run
+repeats the comparison with key assignments swapped to detect key-specific
+routing or quota effects.
+
 ## Repository layout
 
 ```text

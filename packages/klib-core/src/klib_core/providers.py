@@ -38,8 +38,18 @@ class OpenAICompatibleProvider(ModelProvider):
             "messages": messages,
             "temperature": options.get("temperature", 0.2),
         }
-        if options.get("max_tokens"):
-            payload["max_tokens"] = options["max_tokens"]
+        for option in (
+            "frequency_penalty",
+            "max_tokens",
+            "presence_penalty",
+            "seed",
+            "stop",
+            "top_p",
+        ):
+            if option in options:
+                payload[option] = options[option]
+        if isinstance(options.get("extra_body"), dict):
+            payload.update(options["extra_body"])
         try:
             response = httpx.post(
                 f"{self.base_url}/chat/completions",
@@ -80,14 +90,23 @@ def get_provider(
         return MockProvider()
     if normalized == "ollama":
         return OpenAICompatibleProvider(base_url or "http://localhost:11434/v1", api_key="ollama")
-    if normalized in {"openai", "openai-compatible", "lmstudio"}:
+    if normalized in {"nvidia", "openai", "openai-compatible", "lmstudio"}:
         default_url = {
+            "nvidia": "https://integrate.api.nvidia.com/v1",
             "openai": "https://api.openai.com/v1",
             "openai-compatible": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             "lmstudio": "http://localhost:1234/v1",
         }[normalized]
-        resolved_key = api_key or os.getenv("OPENAI_API_KEY")
-        if normalized == "openai" and not resolved_key:
-            raise ModelProviderError("OPENAI_API_KEY is required for the OpenAI provider")
+        environment_key = {
+            "nvidia": "NVIDIA_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "openai-compatible": "OPENAI_API_KEY",
+            "lmstudio": "OPENAI_API_KEY",
+        }[normalized]
+        resolved_key = api_key or os.getenv(environment_key)
+        if normalized in {"nvidia", "openai"} and not resolved_key:
+            raise ModelProviderError(
+                f"{environment_key} is required for the {normalized} provider"
+            )
         return OpenAICompatibleProvider(base_url or default_url, resolved_key or "local")
     raise ModelProviderError(f"Unknown provider: {provider}")

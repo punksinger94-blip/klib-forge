@@ -287,10 +287,9 @@ class ForgeEngine:
                 base_url=base_url,
                 api_key=api_key,
             )
-            checks = self._evaluate_output(ask_result.output, eval_data.get("checks", {}))
-            score = round(
-                100 * sum(1 for check in checks if check.passed) / max(len(checks), 1),
-                2,
+            checks, score = self._score_output(
+                ask_result.output,
+                eval_data.get("checks", {}),
             )
             result = EvalResult(
                 eval_id=eval_data["id"],
@@ -317,6 +316,140 @@ class ForgeEngine:
             ),
         )
         return results
+
+    def compare_evals(
+        self,
+        identifier: str | Path,
+        *,
+        provider: str,
+        model: str,
+        baseline_api_key: str,
+        klib_api_key: str,
+        base_url: str | None = None,
+        repeats: int = 1,
+        options: dict[str, Any] | None = None,
+        baseline_key_label: str = "baseline",
+        klib_key_label: str = "klib",
+    ) -> dict[str, Any]:
+        if repeats < 1:
+            raise KlibError("Comparison repeats must be at least 1")
+
+        manifest, library_path = self.manager.get(identifier)
+        evals = self.manager.evals(identifier)
+        if not evals:
+            raise KlibError("The selected K-LIB has no evals to compare")
+
+        generation_options = {
+            "temperature": 0,
+            "max_tokens": 1024,
+            **(options or {}),
+        }
+        baseline_provider = get_provider(
+            provider,
+            base_url=base_url,
+            api_key=baseline_api_key,
+        )
+        results = []
+        for trial in range(1, repeats + 1):
+            for eval_data in evals:
+                started = time.perf_counter()
+                baseline_output = baseline_provider.chat(
+                    [
+                        {
+                            "role": "system",
+                            "content": (
+                                "Answer accurately from existing model knowledge. "
+                                "If an entity or fact is unknown, say so. "
+                                "Do not invent facts or source citations."
+                            ),
+                        },
+                        {"role": "user", "content": eval_data["input"]},
+                    ],
+                    model,
+                    generation_options,
+                )
+                baseline_latency_ms = round((time.perf_counter() - started) * 1000)
+                baseline_checks, baseline_score = self._score_output(
+                    baseline_output,
+                    eval_data.get("checks", {}),
+                )
+
+                klib_result = self.ask(
+                    identifier,
+                    eval_data["input"],
+                    provider=provider,
+                    model=model,
+                    base_url=base_url,
+                    api_key=klib_api_key,
+                    options=generation_options,
+                )
+                klib_checks, klib_score = self._score_output(
+                    klib_result.output,
+                    eval_data.get("checks", {}),
+                )
+                results.append(
+                    {
+                        "trial": trial,
+                        "eval_id": eval_data["id"],
+                        "eval_name": eval_data.get("name", eval_data["id"]),
+                        "baseline": {
+                            "key_label": baseline_key_label,
+                            "score": baseline_score,
+                            "latency_ms": baseline_latency_ms,
+                            "output": baseline_output,
+                            "checks": [
+                                check.model_dump(mode="json") for check in baseline_checks
+                            ],
+                        },
+                        "klib": {
+                            "key_label": klib_key_label,
+                            "score": klib_score,
+                            "latency_ms": klib_result.latency_ms,
+                            "output": klib_result.output,
+                            "checks": [
+                                check.model_dump(mode="json") for check in klib_checks
+                            ],
+                            "retrieved_context": [
+                                item.model_dump(mode="json")
+                                for item in klib_result.retrieved_context
+                            ],
+                        },
+                        "score_delta": round(klib_score - baseline_score, 2),
+                    }
+                )
+
+        baseline_average = round(
+            sum(item["baseline"]["score"] for item in results) / len(results),
+            2,
+        )
+        klib_average = round(
+            sum(item["klib"]["score"] for item in results) / len(results),
+            2,
+        )
+        report_id = f"ab-{uuid.uuid4().hex}"
+        report = {
+            "id": report_id,
+            "created_at": utc_now(),
+            "library_id": manifest.id,
+            "provider": provider,
+            "model": model,
+            "base_url": base_url,
+            "repeats": repeats,
+            "generation_options": generation_options,
+            "baseline_key_label": baseline_key_label,
+            "klib_key_label": klib_key_label,
+            "baseline_average": baseline_average,
+            "klib_average": klib_average,
+            "score_delta": round(klib_average - baseline_average, 2),
+            "results": results,
+        }
+        report_path = library_path / "runs" / f"{report_id}.json"
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        report["report_path"] = str(report_path)
+        return report
 
     def diff(self, identifier: str | Path) -> DiffResult:
         _, library_path = self.manager.get(identifier)
@@ -433,6 +566,19 @@ class ForgeEngine:
                 )
             )
         return results
+
+    @classmethod
+    def _score_output(
+        cls,
+        output: str,
+        checks: dict[str, Any],
+    ) -> tuple[list[EvalCheck], float]:
+        results = cls._evaluate_output(output, checks)
+        score = round(
+            100 * sum(1 for check in results if check.passed) / max(len(results), 1),
+            2,
+        )
+        return results, score
 
     @staticmethod
     def _infer_required_phrases(corrected: str, bad: str) -> list[str]:

@@ -562,7 +562,7 @@ function Playground({
     <div className="playground">
       <div className="panel chat-panel">
         <div className="model-bar">
-          <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>openai</option><option>mock</option></select></label>
+          <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select></label>
           <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} /></label>
         </div>
         <div className="answer">
@@ -615,7 +615,7 @@ function Evals({
     <div className="panel eval-panel">
       <div className="panel-heading">
         <div><span className="kicker">REGRESSION TESTING</span><h3>Eval Arena</h3></div>
-        <div className="inline-controls"><select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>openai</option><option>mock</option></select><input value={model} onChange={(event) => setModel(event.target.value)} /><button className="button primary" onClick={evaluate}>Run evals</button></div>
+        <div className="inline-controls"><select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select><input value={model} onChange={(event) => setModel(event.target.value)} /><button className="button primary" onClick={evaluate}>Run evals</button></div>
       </div>
       <div className="score-grid">
         {results.map((result) => (

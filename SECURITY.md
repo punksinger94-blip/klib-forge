@@ -16,6 +16,13 @@ them privately to the repository maintainers.
 - The desktop runtime selects an ephemeral localhost port and terminates its
   packaged API sidecar when the app exits.
 - K-LIB Forge does not store provider API keys in package files.
+- NVIDIA A/B credentials are read from process environment variables and are
+  excluded from run reports. The benchmark wrapper prompts with masked input
+  and clears keys that it introduced when the command finishes.
+
+Never commit, paste, or include provider keys in issue text, chat messages,
+screenshots, shell arguments, or benchmark reports. Revoke and replace any key
+that has been disclosed.
 
 The v0.1 Trust Gate is foundational rather than complete. Do not expose the
 local API to untrusted networks.

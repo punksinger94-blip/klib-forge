@@ -403,6 +403,7 @@ def list_models() -> list[dict[str, str | None]]:
     return [
         {"provider": "ollama", "base_url": "http://localhost:11434/v1"},
         {"provider": "lmstudio", "base_url": "http://localhost:1234/v1"},
+        {"provider": "nvidia", "base_url": "https://integrate.api.nvidia.com/v1"},
         {"provider": "openai", "base_url": "https://api.openai.com/v1"},
         {"provider": "openai-compatible", "base_url": os.getenv("OPENAI_BASE_URL")},
         {"provider": "mock", "base_url": None},

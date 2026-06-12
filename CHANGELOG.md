@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add the NVIDIA API Catalog as a named OpenAI-compatible provider.
+- Add a credential-safe baseline-versus-K-LIB biological benchmark.
+- Add optional crossover runs to control for API-key assignment effects.
+
 ## 0.1.1
 
 - Package the FastAPI backend as a Windows sidecar.

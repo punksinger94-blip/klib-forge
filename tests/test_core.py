@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 from klib_core import ForgeEngine, LibraryManager
-from klib_core.errors import KlibError
+from klib_core.benchmarks import BIOLOGY_BENCHMARK_ID, install_biology_benchmark
+from klib_core.errors import KlibError, ModelProviderError
+from klib_core.providers import OpenAICompatibleProvider, get_provider
 
 
 @pytest.fixture
@@ -115,3 +117,75 @@ def test_manifest_is_valid_json(workspace: tuple[LibraryManager, ForgeEngine, Pa
     assert data["klib_format_version"] == "0.1"
     assert data["model_policy"]["allow_online_models"] is False
 
+
+def test_biology_ab_comparison_scores_both_conditions_without_storing_keys(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manager = LibraryManager(tmp_path / "benchmark-home")
+    install_biology_benchmark(manager)
+    engine = ForgeEngine(manager)
+
+    class FakeProvider:
+        def chat(
+            self,
+            messages: list[dict[str, str]],
+            model: str,
+            options: dict,
+        ) -> str:
+            prompt = messages[-1]["content"]
+            if "Retrieved context:" not in prompt:
+                return "I do not know this fictional organism."
+            user_request = prompt.rsplit("User request:", 1)[-1]
+            if "nitrite to ammonium" in user_request:
+                return "LurA is active below pH 6.4 [1]."
+            if "represses LurA" in user_request:
+                return "Brx7 represses it above 3.2 mg/L dissolved oxygen [1]."
+            if "reference salinity" in user_request:
+                return "The reference conditions are 28 ppt and 17 C [1]."
+            return "Contamination requires growth at 37 C and loss of 590 nm emission [1]."
+
+    seen_keys = []
+
+    def fake_get_provider(
+        provider: str,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ) -> FakeProvider:
+        assert provider == "nvidia"
+        assert base_url == "https://integrate.api.nvidia.com/v1"
+        seen_keys.append(api_key)
+        return FakeProvider()
+
+    monkeypatch.setattr("klib_core.engine.get_provider", fake_get_provider)
+    report = engine.compare_evals(
+        BIOLOGY_BENCHMARK_ID,
+        provider="nvidia",
+        model="test/model",
+        baseline_api_key="test-baseline-secret",
+        klib_api_key="test-klib-secret",
+        base_url="https://integrate.api.nvidia.com/v1",
+    )
+
+    assert report["baseline_average"] == 0
+    assert report["klib_average"] == 100
+    assert report["score_delta"] == 100
+    assert seen_keys.count("test-baseline-secret") == 1
+    assert seen_keys.count("test-klib-secret") == 4
+
+    report_text = Path(report["report_path"]).read_text(encoding="utf-8")
+    assert "test-baseline-secret" not in report_text
+    assert "test-klib-secret" not in report_text
+
+
+def test_nvidia_provider_uses_official_endpoint_and_environment_key(monkeypatch) -> None:
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    with pytest.raises(ModelProviderError):
+        get_provider("nvidia")
+
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-nvidia-secret")
+    provider = get_provider("nvidia")
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider.base_url == "https://integrate.api.nvidia.com/v1"
+    assert provider.api_key == "test-nvidia-secret"
