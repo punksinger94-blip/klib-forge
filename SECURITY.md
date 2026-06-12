@@ -13,8 +13,9 @@ them privately to the repository maintainers.
 - Retrieved documents are labeled as evidence and never promoted to system
   instructions.
 - The API binds to `127.0.0.1` by default and has a narrow desktop CORS policy.
+- The desktop runtime selects an ephemeral localhost port and terminates its
+  packaged API sidecar when the app exits.
 - K-LIB Forge does not store provider API keys in package files.
 
 The v0.1 Trust Gate is foundational rather than complete. Do not expose the
 local API to untrusted networks.
-

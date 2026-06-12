@@ -12,7 +12,7 @@ def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
 
     health = client.get("/health")
     assert health.status_code == 200
-    assert health.json()["version"] == "0.1.0"
+    assert health.json()["version"] == "0.1.1"
 
     created = client.post(
         "/libraries",
@@ -42,3 +42,32 @@ def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
     assert asked.status_code == 200
     assert asked.json()["retrieved_context"]
 
+
+def test_builtin_example_install_is_ready_and_idempotent(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("KLIB_HOME", str(tmp_path / "example-home"))
+    client = TestClient(app)
+
+    installed = client.post("/examples/arabic-technical-translation/install")
+    assert installed.status_code == 201
+    assert installed.json()["created"] is True
+    assert installed.json()["library"]["source_count"] == 1
+    assert installed.json()["library"]["eval_count"] == 1
+
+    asked = client.post(
+        "/libraries/arabic-technical-translation/ask",
+        json={
+            "input": "Translate: high latency after deployment.",
+            "provider": "mock",
+            "model": "offline-demo",
+        },
+    )
+    assert asked.status_code == 200
+    assert "زمن الاستجابة" in asked.json()["output"]
+    assert "النشر" in asked.json()["output"]
+
+    repeated = client.post("/examples/arabic-technical-translation/install")
+    assert repeated.status_code == 201
+    assert repeated.json()["created"] is False

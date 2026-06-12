@@ -16,6 +16,7 @@ venv/
 *.log
 node_modules/
 apps/desktop/dist/
+apps/desktop/src-tauri/binaries/*.exe
 apps/desktop/src-tauri/target/
 *.klib
 .DS_Store

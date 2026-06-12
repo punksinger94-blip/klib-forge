@@ -1,3 +1,5 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 export type Library = {
   id: string;
   name: string;
@@ -55,13 +57,31 @@ export type AskResult = {
 };
 
 const defaultBase = "http://127.0.0.1:8000";
+let apiBase = localStorage.getItem("klib-api-base") || defaultBase;
+
+export type RuntimeInfo = {
+  baseUrl: string;
+  managed: boolean;
+  backendPid: number | null;
+  startupError: string | null;
+};
 
 export function getApiBase(): string {
-  return localStorage.getItem("klib-api-base") || defaultBase;
+  return apiBase;
 }
 
-export function setApiBase(value: string): void {
-  localStorage.setItem("klib-api-base", value.replace(/\/+$/, ""));
+export function setApiBase(value: string, persist = true): void {
+  apiBase = value.replace(/\/+$/, "");
+  if (persist) {
+    localStorage.setItem("klib-api-base", apiBase);
+  }
+}
+
+export async function initializeRuntime(): Promise<RuntimeInfo | null> {
+  if (!isTauri()) return null;
+  const runtime = await invoke<RuntimeInfo>("runtime_info");
+  setApiBase(runtime.baseUrl, false);
+  return runtime;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -87,6 +107,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  installExample: () =>
+    request<{ created: boolean; library: LibraryDetail }>(
+      "/examples/arabic-technical-translation/install",
+      { method: "POST" },
+    ),
   sources: (id: string) => request<Source[]>(`/libraries/${id}/sources`),
   uploadSource: (id: string, file: File) => {
     const data = new FormData();
@@ -127,5 +152,26 @@ export const api = {
     request<Record<string, string | string[] | null>>(`/libraries/${id}/diff`, {
       method: "POST",
     }),
+  exportLibrary: async (id: string) => {
+    const response = await fetch(`${getApiBase()}/libraries/${id}/export`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(body.detail || `Export failed with ${response.status}`);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    const filename = match?.[1] || `${id}.klib`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    return filename;
+  },
 };
-

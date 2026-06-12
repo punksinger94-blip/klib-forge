@@ -5,5 +5,4 @@ from .library import LibraryManager
 from .models import Manifest
 
 __all__ = ["ForgeEngine", "LibraryManager", "Manifest"]
-__version__ = "0.1.0"
-
+__version__ = "0.1.1"

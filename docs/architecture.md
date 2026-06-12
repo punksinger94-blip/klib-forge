@@ -21,6 +21,14 @@ The core package has no dependency on the UI or API. The CLI calls it directly,
 and the API is a thin transport layer. This keeps `.klib` behavior consistent
 for desktop users and automation.
 
+## Desktop runtime
+
+The Windows build packages FastAPI and the Python runtime into a PyInstaller
+sidecar. Tauri reserves an available localhost port, starts the sidecar with an
+app-local `KLIB_HOME`, exposes the runtime URL to React through a command, and
+terminates the child process during application shutdown. Users do not need a
+separate Python installation or `klib-api` terminal.
+
 ## Compilation
 
 1. Resolve registered source files.
@@ -42,4 +50,3 @@ for desktop users and automation.
 7. User request
 
 Source documents remain evidence and cannot override runtime instructions.
-

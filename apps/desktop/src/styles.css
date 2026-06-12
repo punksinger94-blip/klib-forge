@@ -89,6 +89,8 @@ p { color: var(--muted); line-height: 1.65; font-size: 13px; }
 .hero-panel { min-height: 270px; padding: 30px; display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(circle at 90% 10%, #dfaf4b10, transparent 35%), linear-gradient(145deg, #12181d, #0f1418); }
 .hero-panel h2 { max-width: 620px; font-size: 40px; letter-spacing: -.055em; line-height: 1.05; margin: 15px 0; color: #f0f2f4; }
 .hero-panel p { max-width: 620px; font-size: 14px; }
+.hero-actions { display: flex; gap: 12px; align-items: center; margin: 18px 0 4px; }
+.hero-actions span { color: var(--muted); font: 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
 .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
 .pipeline div { padding-top: 14px; display: flex; align-items: center; gap: 10px; font: 10px var(--mono); letter-spacing: .1em; }
 .pipeline span { color: var(--accent); }
@@ -99,6 +101,7 @@ p { color: var(--muted); line-height: 1.65; font-size: 13px; }
 .metrics strong { display: block; color: var(--accent); font: 24px var(--mono); margin-bottom: 7px; }
 .metrics span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .package-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0 0; }
+.package-actions { display: flex; align-items: center; gap: 8px; }
 .package-card dl div { padding: 12px; background: #0d1216; border: 1px solid var(--line); }
 dt { color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
 dd { margin: 6px 0 0; font: 12px var(--mono); }
@@ -164,4 +167,3 @@ code { font-family: var(--mono); color: var(--accent-2); }
   .context-panel { min-height: 400px; }
   .metrics { grid-template-columns: 1fr 1fr; }
 }
-

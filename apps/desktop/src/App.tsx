@@ -1,8 +1,9 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   AskResult,
   getApiBase,
+  initializeRuntime,
   Library,
   LibraryDetail,
   SearchResult,
@@ -32,6 +33,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Connect the local API to begin.");
   const [context, setContext] = useState<SearchResult[]>([]);
+  const booted = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -51,7 +53,21 @@ function App() {
   }, [selectedId]);
 
   useEffect(() => {
-    void refresh();
+    if (booted.current) return;
+    booted.current = true;
+    void (async () => {
+      try {
+        const runtime = await initializeRuntime();
+        if (runtime?.startupError) {
+          setNotice(runtime.startupError);
+        } else if (runtime?.managed) {
+          setNotice(`Managed local runtime started on ${runtime.baseUrl}.`);
+        }
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Desktop runtime discovery failed.");
+      }
+      await refresh();
+    })();
   }, [refresh]);
 
   useEffect(() => {
@@ -216,11 +232,32 @@ function Overview({
     event.preventDefault();
     void run(async () => {
       const result = await api.createLibrary({ name, domain, description });
-      select(result.manifest.id);
       setName("");
       setDescription("");
       await refresh();
+      select(result.manifest.id);
       setNotice(`Created ${result.manifest.name}.`);
+    });
+  }
+
+  function installExample() {
+    void run(async () => {
+      const result = await api.installExample();
+      await refresh();
+      select(result.library.manifest.id);
+      setNotice(
+        result.created
+          ? "Installed and compiled the Arabic Technical Translation demo."
+          : "The demo library is already installed.",
+      );
+    });
+  }
+
+  function exportPackage() {
+    if (!detail) return;
+    void run(async () => {
+      const filename = await api.exportLibrary(detail.manifest.id);
+      setNotice(`Exported ${filename}.`);
     });
   }
 
@@ -234,6 +271,14 @@ function Overview({
             Build sources, rules, examples, corrections, and evals into a transparent package
             that runs with local or online models.
           </p>
+          {!libraries.length && (
+            <div className="hero-actions">
+              <button className="button primary" onClick={installExample}>
+                Install ready-to-run demo
+              </button>
+              <span>No model download required</span>
+            </div>
+          )}
         </div>
         <div className="pipeline">
           {["SOURCE", "COMPILE", "TEST", "PACKAGE"].map((step, index) => (
@@ -282,7 +327,14 @@ function Overview({
             <span className="kicker">ACTIVE MANIFEST</span>
             <h3>{detail?.manifest.name || "No package selected"}</h3>
           </div>
-          {detail && <span className="domain-tag">{detail.manifest.domain}</span>}
+          {detail && (
+            <div className="package-actions">
+              <span className="domain-tag">{detail.manifest.domain}</span>
+              <button className="button secondary" onClick={exportPackage}>
+                Export .klib
+              </button>
+            </div>
+          )}
         </div>
         {detail ? (
           <>
@@ -635,7 +687,11 @@ function Settings({
     <form className="panel settings-panel" onSubmit={submit}>
       <span className="kicker">LOCAL RUNTIME</span><h3>Connection settings</h3>
       <label>FastAPI base URL<input value={base} onChange={(event) => setBase(event.target.value)} /></label>
-      <p>Start the backend with <code>klib-api</code>. Ollama defaults to <code>http://localhost:11434/v1</code>.</p>
+      <p>
+        The desktop app starts and stops its packaged backend automatically. This setting is
+        retained for browser development or an explicitly managed remote runtime. Ollama defaults
+        to <code>http://localhost:11434/v1</code>.
+      </p>
       <button className="button primary">Save and reconnect</button>
     </form>
   );
@@ -650,4 +706,3 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 }
 
 export default App;
-

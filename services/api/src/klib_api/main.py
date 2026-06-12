@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -11,7 +12,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from klib_core import ForgeEngine, LibraryManager
-from klib_core.errors import KlibError
+from klib_core.errors import KlibError, LibraryNotFoundError
+from klib_core.manifest import save_manifest
 from klib_core.providers import get_provider
 from pydantic import BaseModel, Field
 
@@ -75,12 +77,18 @@ class ModelTestRequest(BaseModel):
 
 app = FastAPI(
     title="K-LIB Forge API",
-    version="0.1.0",
+    version="0.1.1",
     description="Local-first API for building and running portable .klib packages.",
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1420", "http://127.0.0.1:1420"],
+    allow_origins=[
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,6 +104,19 @@ def engine() -> ForgeEngine:
     return ForgeEngine(manager())
 
 
+def library_detail(library_id: str) -> dict[str, Any]:
+    forge = manager()
+    manifest, path = forge.get(library_id)
+    return {
+        "manifest": manifest.model_dump(mode="json"),
+        "path": str(path),
+        "source_count": len(forge.sources(library_id)),
+        "glossary_count": len(forge.glossary(library_id)),
+        "rule_count": len(forge.rules(library_id)),
+        "eval_count": len(forge.evals(library_id)),
+    }
+
+
 @app.exception_handler(KlibError)
 async def handle_klib_error(_request: Any, exc: KlibError) -> Any:
     return _error_response(400, str(exc))
@@ -109,7 +130,7 @@ def _error_response(status_code: int, detail: str) -> Any:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.1.1"}
 
 
 @app.post("/libraries", status_code=201)
@@ -131,15 +152,97 @@ def list_libraries() -> list[dict[str, Any]]:
 
 @app.get("/libraries/{library_id}")
 def get_library(library_id: str) -> dict[str, Any]:
-    manifest, path = manager().get(library_id)
-    return {
-        "manifest": manifest.model_dump(mode="json"),
-        "path": str(path),
-        "source_count": len(manager().sources(library_id)),
-        "glossary_count": len(manager().glossary(library_id)),
-        "rule_count": len(manager().rules(library_id)),
-        "eval_count": len(manager().evals(library_id)),
+    return library_detail(library_id)
+
+
+@app.post("/examples/arabic-technical-translation/install", status_code=201)
+def install_arabic_translation_example() -> dict[str, Any]:
+    library_id = "arabic-technical-translation"
+    forge = manager()
+    try:
+        forge.get(library_id)
+        return {"created": False, "library": library_detail(library_id)}
+    except LibraryNotFoundError:
+        pass
+
+    manifest = forge.create(
+        "Arabic Technical Translation",
+        library_id=library_id,
+        description=(
+            "A ready-to-run example for consistent English-to-Arabic "
+            "software terminology."
+        ),
+        domain="translation/software",
+    )
+    manifest.languages = ["en", "ar"]
+    manifest.default_mode = "developer_docs"
+    manifest.supported_tasks = ["translate", "review_translation"]
+    manifest.retrieval_policy.top_k = 6
+    manifest.model_policy.default_provider = "mock"
+    manifest.model_policy.default_model = "offline-demo"
+    _, library_path = forge.get(library_id)
+    save_manifest(library_path, manifest)
+    forge.register(library_path)
+
+    forge.add_glossary(
+        library_id,
+        "latency",
+        "زمن الاستجابة",
+        notes="Use in software and networking contexts.",
+    )
+    forge.add_glossary(
+        library_id,
+        "deployment",
+        "النشر",
+        notes="Use for software deployment.",
+    )
+    forge.add_rule(
+        library_id,
+        "Keep code identifiers, commands, file paths, API names, and model names in English.",
+        title="Preserve technical identifiers",
+        priority=1,
+    )
+    forge.add_rule(
+        library_id,
+        "Use the package glossary whenever a preferred technical term exists.",
+        title="Follow preferred terminology",
+        priority=2,
+    )
+    forge.add_example(
+        library_id,
+        "The server crashed after deployment.",
+        "تعطل الخادم بعد النشر.",
+        task="translate",
+        mode="developer_docs",
+    )
+
+    with tempfile.TemporaryDirectory() as temporary_dir:
+        source_path = Path(temporary_dir) / "software-translation-guide.md"
+        source_path.write_text(
+            "# Software translation guide\n\n"
+            "Translate software behavior precisely and keep code identifiers in English. "
+            "In networking and performance contexts, latency means زمن الاستجابة. "
+            "Deployment means النشر when releasing software to an environment.\n",
+            encoding="utf-8",
+        )
+        forge.add_sources(library_id, source_path)
+
+    eval_data = {
+        "id": "translation-latency-001",
+        "name": "Translate latency and deployment consistently",
+        "task": "translation",
+        "input": "Translate: The app has high latency after deployment.",
+        "checks": {
+            "must_include": ["زمن الاستجابة", "النشر"],
+            "must_not_include": ["تأخير"],
+        },
     }
+    (library_path / "evals" / "translation-latency-001.json").write_text(
+        json.dumps(eval_data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    engine().compile(library_id)
+    return {"created": True, "library": library_detail(library_id)}
 
 
 @app.delete("/libraries/{library_id}", status_code=204)
@@ -327,4 +430,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-

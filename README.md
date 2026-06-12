@@ -8,10 +8,13 @@ models.
 
 **Build once. Run on any model.**
 
-## v0.1 capabilities
+## v0.1.1 capabilities
 
 - Strict `.klib` package format with JSON Schema validation
 - CLI, FastAPI service, React desktop UI, and Tauri native shell
+- Self-contained Windows desktop installer with a packaged API sidecar
+- Automatic backend startup, dynamic localhost port selection, and shutdown
+- First-run ready-to-use example with an offline model
 - TXT, Markdown, PDF, JSON, and JSONL source ingestion
 - Deterministic local chunking, keyword extraction, and TF-IDF retrieval
 - Ollama, LM Studio, OpenAI, OpenAI-compatible, and offline mock connectors
@@ -44,7 +47,7 @@ klib ask "Explain the important topic" --provider mock --model offline-demo
 klib export ..\my-knowledge-library.klib
 ```
 
-Start the API:
+For CLI or browser development, start the API:
 
 ```powershell
 klib-api
@@ -58,10 +61,11 @@ npm install
 npm run dev
 ```
 
-Run the native shell after installing Rust:
+Run the native shell after installing Rust. This packages and starts the API
+sidecar automatically:
 
 ```powershell
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## Development
@@ -71,8 +75,15 @@ npm run tauri dev
 .\scripts\build.ps1
 ```
 
-The API documentation is available at
-`http://127.0.0.1:8000/docs` while `klib-api` is running.
+The standalone API documentation is available at
+`http://127.0.0.1:8000/docs` while `klib-api` is running. The packaged desktop
+runtime uses a dynamically assigned localhost port.
+
+The Windows installer is generated under:
+
+```text
+apps/desktop/src-tauri/target/release/bundle/nsis/
+```
 
 ## Repository layout
 
@@ -96,4 +107,3 @@ until `model_policy.allow_online_models` is enabled in `manifest.json`.
 
 K-LIB Forge is licensed under Apache-2.0. Knowledge packages can declare their
 own content license in `manifest.json`.
-
