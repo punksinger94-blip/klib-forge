@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klibforge.dev/spec/0.1/policy.schema.json",
+  "title": "K-LIB Runtime Policy",
+  "type": "object",
+  "properties": {
+    "privacy": {
+      "type": "object",
+      "properties": {
+        "allow_online_models": { "type": "boolean" },
+        "allow_cross_library_retrieval": { "type": "boolean" },
+        "redact_secrets": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "allow_mcp": { "type": "boolean" },
+        "allowed_tools": { "type": "array", "items": { "type": "string" } },
+        "blocked_tools": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

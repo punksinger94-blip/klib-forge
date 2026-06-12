@@ -1,0 +1,11 @@
+{
+  "id": "translation-latency-001",
+  "name": "Translate latency and deployment consistently",
+  "task": "translation",
+  "input": "Translate: The app has high latency after deployment.",
+  "checks": {
+    "must_include": ["زمن الاستجابة", "النشر"],
+    "must_not_include": ["تأخير"]
+  }
+}
+

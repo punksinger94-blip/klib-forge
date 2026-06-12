@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "klib-forge"
+version = "0.1.0"
+description = "Local-first build system for portable AI knowledge libraries."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "K-LIB Forge Contributors" }]
+dependencies = [
+  "fastapi>=0.115,<1",
+  "httpx>=0.27,<1",
+  "jsonschema>=4.23,<5",
+  "pydantic>=2.10,<3",
+  "pypdf>=5,<7",
+  "python-multipart>=0.0.20,<1",
+  "typer>=0.15,<1",
+  "uvicorn>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.11,<1",
+]
+chroma = ["chromadb>=1,<2"]
+
+[project.scripts]
+klib = "klib_cli.main:app"
+klib-api = "klib_api.main:run"
+
+[tool.setuptools.packages.find]
+where = [
+  "packages/klib-core/src",
+  "packages/klib-cli/src",
+  "services/api/src",
+]
+
+[tool.setuptools.package-data]
+klib_core = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

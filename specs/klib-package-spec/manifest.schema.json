@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klibforge.dev/spec/0.1/manifest.schema.json",
+  "title": "K-LIB Package Manifest",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "klib_format_version",
+    "retrieval_policy",
+    "model_policy"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+].+)?$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "license": {
+      "type": "string"
+    },
+    "klib_format_version": {
+      "const": "0.1"
+    },
+    "default_mode": {
+      "type": "string"
+    },
+    "supported_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "retrieval_policy": {
+      "type": "object",
+      "required": ["top_k", "use_hybrid_search", "require_citations"],
+      "properties": {
+        "top_k": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "use_hybrid_search": {
+          "type": "boolean"
+        },
+        "require_citations": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "model_policy": {
+      "type": "object",
+      "required": ["default_provider", "default_model", "allow_online_models"],
+      "properties": {
+        "default_provider": {
+          "type": "string"
+        },
+        "default_model": {
+          "type": "string"
+        },
+        "allow_online_models": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+

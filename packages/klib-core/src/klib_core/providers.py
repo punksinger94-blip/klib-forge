@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+import os
+from abc import ABC, abstractmethod
+from typing import Any
+
+import httpx
+
+from .errors import ModelProviderError
+
+
+class ModelProvider(ABC):
+    @abstractmethod
+    def chat(self, messages: list[dict[str, str]], model: str, options: dict[str, Any]) -> str:
+        raise NotImplementedError
+
+    def test(self, model: str) -> dict[str, Any]:
+        output = self.chat(
+            [{"role": "user", "content": "Reply with exactly: K-LIB OK"}],
+            model,
+            {"temperature": 0},
+        )
+        return {"ok": bool(output.strip()), "output": output}
+
+
+class OpenAICompatibleProvider(ModelProvider):
+    def __init__(self, base_url: str, api_key: str | None = None, timeout: float = 120):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.timeout = timeout
+
+    def chat(self, messages: list[dict[str, str]], model: str, options: dict[str, Any]) -> str:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": options.get("temperature", 0.2),
+        }
+        if options.get("max_tokens"):
+            payload["max_tokens"] = options["max_tokens"]
+        try:
+            response = httpx.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return str(data["choices"][0]["message"]["content"])
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
+            raise ModelProviderError(f"Model request failed: {exc}") from exc
+
+
+class MockProvider(ModelProvider):
+    """Offline provider for demos and automated tests."""
+
+    def chat(self, messages: list[dict[str, str]], model: str, options: dict[str, Any]) -> str:
+        prompt = messages[-1]["content"]
+        knowledge = prompt.split("Glossary:", 1)[-1] if "Glossary:" in prompt else prompt
+        knowledge = knowledge.split("User request:", 1)[0].strip()
+        if knowledge:
+            return f"Offline demo answer based on the selected K-LIB:\n{knowledge[:1200]}"
+        return (
+            "Offline demo provider is connected. "
+            "Compile and add matching sources for grounded output."
+        )
+
+
+def get_provider(
+    provider: str,
+    *,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> ModelProvider:
+    normalized = provider.casefold()
+    if normalized == "mock":
+        return MockProvider()
+    if normalized == "ollama":
+        return OpenAICompatibleProvider(base_url or "http://localhost:11434/v1", api_key="ollama")
+    if normalized in {"openai", "openai-compatible", "lmstudio"}:
+        default_url = {
+            "openai": "https://api.openai.com/v1",
+            "openai-compatible": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            "lmstudio": "http://localhost:1234/v1",
+        }[normalized]
+        resolved_key = api_key or os.getenv("OPENAI_API_KEY")
+        if normalized == "openai" and not resolved_key:
+            raise ModelProviderError("OPENAI_API_KEY is required for the OpenAI provider")
+        return OpenAICompatibleProvider(base_url or default_url, resolved_key or "local")
+    raise ModelProviderError(f"Unknown provider: {provider}")
