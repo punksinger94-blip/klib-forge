@@ -74,6 +74,15 @@ export type RuntimeInfo = {
   startupError: string | null;
 };
 
+export type Capabilities = {
+  version: string;
+  vector_adapters: {
+    local: boolean;
+    chroma: boolean;
+    qdrant: boolean;
+  };
+};
+
 export type Suggestion = {
   id: string;
   kind: "glossary" | "rule" | "example" | "eval";
@@ -139,6 +148,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<{ status: string; version: string }>("/health"),
+  capabilities: () => request<Capabilities>("/capabilities"),
   libraries: () => request<Library[]>("/libraries"),
   library: (id: string) => request<LibraryDetail>(`/libraries/${id}`),
   updateLibrary: (id: string, data: Record<string, unknown>) =>

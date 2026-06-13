@@ -99,31 +99,29 @@ def clean_text(text: str) -> str:
 
 
 def chunk_text(text: str, size: int = 1200, overlap: int = 180) -> list[str]:
+    if size < 1:
+        raise KlibError("Chunk size must be at least 1")
+    if overlap < 0 or overlap >= size:
+        raise KlibError("Chunk overlap must be non-negative and smaller than chunk size")
     if not text:
         return []
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    normalized = "\n\n".join(paragraphs)
     chunks: list[str] = []
-    current = ""
-    for paragraph in paragraphs:
-        if len(paragraph) > size:
-            if current:
-                chunks.append(current)
-                current = ""
-            start = 0
-            while start < len(paragraph):
-                end = min(len(paragraph), start + size)
-                chunks.append(paragraph[start:end].strip())
-                if end == len(paragraph):
-                    break
-                start = max(start + 1, end - overlap)
-            continue
-        candidate = f"{current}\n\n{paragraph}".strip()
-        if current and len(candidate) > size:
-            chunks.append(current)
-            tail = current[-overlap:] if overlap else ""
-            current = f"{tail}\n\n{paragraph}".strip()
-        else:
-            current = candidate
-    if current:
-        chunks.append(current)
+    start = 0
+    while start < len(normalized):
+        end = min(start + size, len(normalized))
+        if end < len(normalized):
+            minimum_boundary = start + max(size // 2, 1)
+            paragraph_boundary = normalized.rfind("\n\n", minimum_boundary, end)
+            word_boundary = normalized.rfind(" ", minimum_boundary, end)
+            boundary = max(paragraph_boundary, word_boundary)
+            if boundary > start:
+                end = boundary
+        chunk = normalized[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end >= len(normalized):
+            break
+        start = max(start + 1, end - overlap)
     return chunks

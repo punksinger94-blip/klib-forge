@@ -70,7 +70,7 @@ class OpenAICompatibleProvider(ModelProvider):
                     retry_after = exc.response.headers.get("retry-after")
                     try:
                         if retry_after:
-                            delay = min(float(retry_after), 120)
+                            delay = max(0, min(float(retry_after), 120))
                         elif status == 429:
                             delay = min(15 * (2**attempt), 120)
                         else:

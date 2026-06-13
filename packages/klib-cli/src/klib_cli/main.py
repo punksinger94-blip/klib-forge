@@ -16,6 +16,7 @@ from klib_core.benchmarks import (
     install_literature_biology_benchmark,
 )
 from klib_core.errors import KlibError
+from klib_core.library import slugify
 from klib_core.profiles import ModelProfileManager
 from klib_core.providers import get_provider
 
@@ -89,7 +90,7 @@ def init_library(
     """Create a new .klib package folder."""
 
     def action() -> None:
-        target = path or Path.cwd() / (library_id or name.casefold().replace(" ", "-"))
+        target = path or Path.cwd() / slugify(library_id or name)
         manifest = manager().create(
             name,
             library_id=library_id,

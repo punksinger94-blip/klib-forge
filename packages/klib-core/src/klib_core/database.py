@@ -106,6 +106,22 @@ class Database:
             row = connection.execute(sql, parameters).fetchone()
             return dict(row) if row else None
 
+    def replace_chunks(
+        self,
+        library_id: str,
+        rows: list[tuple[Any, ...]],
+    ) -> None:
+        with self.connect() as connection:
+            connection.execute("DELETE FROM chunks WHERE library_id = ?", (library_id,))
+            connection.executemany(
+                """
+                INSERT INTO chunks
+                    (id, library_id, source_id, text, chunk_index, metadata_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
     @staticmethod
     def json(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False)

@@ -134,13 +134,17 @@ if ($Version) {
         }
 
         try {
-            Get-Content -Raw -LiteralPath (Join-Path $Root "dist\release\sbom-python.cdx.json") |
-                ConvertFrom-Json | Out-Null
-            Get-Content -Raw -LiteralPath (Join-Path $Root "dist\release\sbom-npm.cdx.json") |
-                ConvertFrom-Json | Out-Null
-            Get-Content -Raw -LiteralPath (Join-Path $Root "dist\release\sbom-rust-metadata.json") |
-                ConvertFrom-Json | Out-Null
-            Pass "Release metadata is valid JSON."
+            $StrictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+            foreach ($MetadataPath in @(
+                (Join-Path $Root "dist\release\sbom-python.cdx.json"),
+                (Join-Path $Root "dist\release\sbom-npm.cdx.json"),
+                (Join-Path $Root "dist\release\sbom-rust-metadata.json")
+            )) {
+                $Bytes = [System.IO.File]::ReadAllBytes($MetadataPath)
+                $Json = $StrictUtf8.GetString($Bytes)
+                $Json | ConvertFrom-Json | Out-Null
+            }
+            Pass "Release metadata is valid UTF-8 JSON."
         }
         catch {
             Block "Release metadata contains invalid JSON: $($_.Exception.Message)"

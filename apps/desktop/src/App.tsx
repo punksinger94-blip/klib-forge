@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   api,
   AskResult,
+  Capabilities,
   getApiBase,
   initializeRuntime,
   Library,
@@ -1030,13 +1031,13 @@ function Evals({
         <select value={secondProvider} onChange={(event) => setSecondProvider(event.target.value)}><option>mock</option><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option></select>
         <input value={secondModel} onChange={(event) => setSecondModel(event.target.value)} />
         <button className="button secondary" onClick={compare}>Compare two models</button>
-        {arena.map((item) => <span className="score-pill" key={item.name}>{item.name}: {item.average.toFixed(1)}</span>)}
+        {arena.map((item, index) => <span className="score-pill" key={`${item.name}-${index}`}>{item.name}: {item.average.toFixed(1)}</span>)}
       </div>
       <div className="score-grid">
         {results.map((result) => (
           <article key={result.eval_id}><div className="score">{result.score.toFixed(0)}</div><div><strong>{result.eval_id}</strong><p>{result.output}</p></div></article>
         ))}
-        {!results.length && <EmptyState title={`${detail.eval_count} evals ready`} body="Corrections can become deterministic regression checks." />}
+        {!results.length && <EmptyState title={`${evals.length} evals ready`} body="Corrections can become deterministic regression checks." />}
       </div>
       <div className="eval-editor-grid">
         <form className="editor-form" onSubmit={addEval}>
@@ -1131,11 +1132,15 @@ function Settings({
   const [adapter, setAdapter] = useState(
     detail?.manifest.retrieval_policy.vector_adapter || "local",
   );
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [hybrid, setHybrid] = useState(
     detail?.manifest.retrieval_policy.use_hybrid_search || false,
   );
   const loadProfiles = useCallback(() => api.profiles().then(setProfiles), []);
   useEffect(() => void loadProfiles(), [loadProfiles]);
+  useEffect(() => {
+    void api.capabilities().then(setCapabilities).catch(() => setCapabilities(null));
+  }, []);
   useEffect(() => {
     if (!detail) return;
     setPackageName(detail.manifest.name);
@@ -1171,6 +1176,10 @@ function Settings({
   }
   function saveRetrieval() {
     if (!detail) return;
+    if (capabilities && !capabilities.vector_adapters[adapter]) {
+      setNotice(`${adapter} is unavailable in this runtime.`);
+      return;
+    }
     void run(async () => {
       await api.updateLibrary(detail.manifest.id, {
         retrieval_policy: {
@@ -1228,9 +1237,10 @@ function Settings({
       </form>
       <div className="panel settings-panel">
         <span className="kicker">RETRIEVAL</span><h3>Index adapter</h3>
-        <label>Vector adapter<select value={adapter} onChange={(event) => setAdapter(event.target.value as "local" | "chroma" | "qdrant")}><option value="local">local</option><option value="chroma">chroma</option><option value="qdrant">qdrant</option></select></label>
+        <label>Vector adapter<select value={adapter} onChange={(event) => setAdapter(event.target.value as "local" | "chroma" | "qdrant")}><option value="local">local</option><option value="chroma" disabled={capabilities?.vector_adapters.chroma === false}>chroma{capabilities?.vector_adapters.chroma === false ? " (unavailable)" : ""}</option><option value="qdrant">qdrant</option></select></label>
+        {capabilities?.vector_adapters.chroma === false && <p>Chroma requires the optional <code>klib-forge[chroma]</code> Python dependency and is not bundled in this desktop runtime.</p>}
         <label className="check-label"><input type="checkbox" checked={hybrid} onChange={(event) => setHybrid(event.target.checked)} /> Fuse lexical and vector results</label>
-        <button className="button primary" onClick={saveRetrieval} disabled={!detail}>Save retrieval policy</button>
+        <button className="button primary" onClick={saveRetrieval} disabled={!detail || capabilities?.vector_adapters[adapter] === false}>Save retrieval policy</button>
       </div>
       <form className="panel settings-panel" onSubmit={saveProfile}>
         <span className="kicker">MODEL PROFILES</span><h3>Reusable connector</h3>

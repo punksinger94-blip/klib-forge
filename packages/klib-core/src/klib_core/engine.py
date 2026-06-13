@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 import time
 import uuid
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +39,7 @@ class ForgeEngine:
         sources = self.manager.sources(identifier)
         chunks: list[dict[str, Any]] = []
         chunks_path = library_path / "chunks" / "chunks.jsonl"
-        self.manager.db.execute("DELETE FROM chunks WHERE library_id = ?", (manifest.id,))
+        chunk_rows: list[tuple[Any, ...]] = []
 
         for source in sources:
             if source["trust_level"] == "blocked":
@@ -62,12 +65,7 @@ class ForgeEngine:
                     },
                 }
                 chunks.append(item)
-                self.manager.db.execute(
-                    """
-                    INSERT INTO chunks
-                        (id, library_id, source_id, text, chunk_index, metadata_json, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
+                chunk_rows.append(
                     (
                         chunk_id,
                         manifest.id,
@@ -79,28 +77,47 @@ class ForgeEngine:
                     ),
                 )
 
-        chunks_path.parent.mkdir(parents=True, exist_ok=True)
-        chunks_path.write_text(
-            "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in chunks),
-            encoding="utf-8",
-        )
-        LocalIndex(library_path / "indexes" / "local-index.json").build(chunks)
-        LocalVectorIndex(library_path / "indexes" / "local-vectors.json").build(chunks)
         adapter = manifest.retrieval_policy.vector_adapter
         collection = (
             manifest.retrieval_policy.qdrant_collection
             or manifest.id.replace("-", "_")
         )
-        if adapter == "chroma":
-            ChromaVectorIndex(
-                library_path / "indexes" / "chroma",
-                collection,
-            ).build(chunks)
-        elif adapter == "qdrant":
-            QdrantVectorIndex(
-                manifest.retrieval_policy.qdrant_url,
-                collection,
-            ).build(chunks)
+        indexes_path = library_path / "indexes"
+        indexes_path.mkdir(parents=True, exist_ok=True)
+        chunks_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            prefix=".compile-",
+            dir=library_path / "build",
+        ) as temporary:
+            staging = Path(temporary)
+            staged_chunks = staging / "chunks.jsonl"
+            staged_lexical = staging / "local-index.json"
+            staged_vectors = staging / "local-vectors.json"
+            staged_chunks.write_text(
+                "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in chunks),
+                encoding="utf-8",
+            )
+            LocalIndex(staged_lexical).build(chunks)
+            LocalVectorIndex(staged_vectors).build(chunks)
+            if adapter == "chroma":
+                ChromaVectorIndex(
+                    library_path / "indexes" / "chroma",
+                    collection,
+                ).build(chunks)
+            elif adapter == "qdrant":
+                QdrantVectorIndex(
+                    manifest.retrieval_policy.qdrant_url,
+                    collection,
+                ).build(chunks)
+
+            self._replace_artifacts(
+                (
+                    (staged_chunks, chunks_path),
+                    (staged_lexical, indexes_path / "local-index.json"),
+                    (staged_vectors, indexes_path / "local-vectors.json"),
+                ),
+                lambda: self.manager.db.replace_chunks(manifest.id, chunk_rows),
+            )
         keywords = top_keywords(chunks)
         build_metadata = {
             "library_id": manifest.id,
@@ -126,6 +143,33 @@ class ForgeEngine:
             keywords=keywords,
             snapshot_id=snapshot_id,
         )
+
+    @staticmethod
+    def _replace_artifacts(
+        artifacts: tuple[tuple[Path, Path], ...],
+        commit: Callable[[], None],
+    ) -> None:
+        backups: list[tuple[Path, Path]] = []
+        replaced: list[Path] = []
+        try:
+            for staged, target in artifacts:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if target.exists():
+                    backup = target.with_name(f".{target.name}.{uuid.uuid4().hex}.bak")
+                    os.replace(target, backup)
+                    backups.append((backup, target))
+                os.replace(staged, target)
+                replaced.append(target)
+            commit()
+        except Exception:
+            for target in replaced:
+                target.unlink(missing_ok=True)
+            for backup, target in reversed(backups):
+                if backup.exists():
+                    os.replace(backup, target)
+            raise
+        for backup, _target in backups:
+            backup.unlink(missing_ok=True)
 
     def search(
         self,

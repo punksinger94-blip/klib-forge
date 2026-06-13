@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from klib_core import ForgeEngine, LibraryManager, __version__
@@ -20,33 +21,33 @@ from pydantic import BaseModel, Field
 
 
 class LibraryCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     id: str | None = None
     description: str = ""
     domain: str = "general"
 
 
 class GlossaryCreate(BaseModel):
-    source_term: str
-    target_term: str
+    source_term: str = Field(min_length=1)
+    target_term: str = Field(min_length=1)
     notes: str = ""
 
 
 class RuleCreate(BaseModel):
-    body: str
+    body: str = Field(min_length=1)
     title: str = ""
     priority: int = Field(default=5, ge=1, le=10)
 
 
 class ExampleCreate(BaseModel):
-    input: str
-    output: str
+    input: str = Field(min_length=1)
+    output: str = Field(min_length=1)
     task: str = ""
     mode: str = ""
 
 
 class AskRequest(BaseModel):
-    input: str
+    input: str = Field(min_length=1)
     provider: str | None = None
     model: str | None = None
     mode: str | None = None
@@ -89,11 +90,11 @@ class LibraryUpdate(BaseModel):
 
 class SourceUpdate(BaseModel):
     title: str | None = None
-    trust_level: str | None = None
+    trust_level: Literal["trusted", "user_added", "flagged", "blocked"] | None = None
 
 
 class RuleUpdate(BaseModel):
-    body: str
+    body: str = Field(min_length=1)
     title: str = ""
     priority: int = Field(default=5, ge=1, le=10)
 
@@ -106,19 +107,22 @@ class ExampleUpdate(BaseModel):
 
 
 class CorrectionReview(BaseModel):
-    status: str
+    status: Literal["pending", "approved", "rejected"]
 
 
 class SuggestionApply(BaseModel):
-    kind: str
+    kind: Literal["glossary", "rule", "example", "eval"]
     payload: dict[str, Any]
 
 
 class EvalUpsert(BaseModel):
-    id: str | None = None
+    id: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+    )
     name: str = ""
     task: str = ""
-    input: str
+    input: str = Field(min_length=1)
     checks: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -130,7 +134,7 @@ class ArenaModel(BaseModel):
 
 
 class ArenaRequest(BaseModel):
-    models: list[ArenaModel]
+    models: list[ArenaModel] = Field(min_length=2)
 
 
 class ProfileCreate(BaseModel):
@@ -194,6 +198,11 @@ async def handle_klib_error(_request: Any, exc: KlibError) -> Any:
     return _error_response(400, str(exc))
 
 
+@app.exception_handler(LibraryNotFoundError)
+async def handle_library_not_found(_request: Any, exc: LibraryNotFoundError) -> Any:
+    return _error_response(404, str(exc))
+
+
 def _error_response(status_code: int, detail: str) -> Any:
     from fastapi.responses import JSONResponse
 
@@ -203,6 +212,18 @@ def _error_response(status_code: int, detail: str) -> Any:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
+
+
+@app.get("/capabilities")
+def capabilities() -> dict[str, Any]:
+    return {
+        "version": __version__,
+        "vector_adapters": {
+            "local": True,
+            "chroma": importlib.util.find_spec("chromadb") is not None,
+            "qdrant": True,
+        },
+    }
 
 
 @app.post("/libraries", status_code=201)
@@ -483,7 +504,11 @@ def compile_library(library_id: str) -> dict[str, Any]:
 
 
 @app.get("/libraries/{library_id}/search")
-def search_library(library_id: str, q: str, top_k: int = 8) -> list[dict[str, Any]]:
+def search_library(
+    library_id: str,
+    q: str = Query(min_length=1),
+    top_k: int = Query(default=8, ge=1, le=50),
+) -> list[dict[str, Any]]:
     return [
         item.model_dump(mode="json")
         for item in engine().search(library_id, q, top_k)

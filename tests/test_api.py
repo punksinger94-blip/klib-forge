@@ -13,6 +13,10 @@ def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
     health = client.get("/health")
     assert health.status_code == 200
     assert health.json()["version"] == "1.0.0"
+    capabilities = client.get("/capabilities")
+    assert capabilities.status_code == 200
+    assert capabilities.json()["vector_adapters"]["local"] is True
+    assert capabilities.json()["vector_adapters"]["qdrant"] is True
 
     created = client.post(
         "/libraries",

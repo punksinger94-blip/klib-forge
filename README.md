@@ -160,6 +160,7 @@ K-LIB Forge has no telemetry. See [Privacy and Data](docs/privacy.md).
 - [SDK and MCP](docs/sdk-and-mcp.md)
 - [Known limitations](docs/known-limitations.md)
 - [Release process](docs/release.md)
+- [1.0.0 release qualification](docs/release-qualification-1.0.0.md)
 - [Security policy](SECURITY.md)
 
 Run `.\scripts\release-doctor.ps1` to validate a local release candidate. Add

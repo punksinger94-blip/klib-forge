@@ -48,7 +48,10 @@ class LocalVectorIndex:
         if not self.path.exists():
             return []
         query_vector = embed_text(query)
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise KlibError(f"Local vector index is unreadable: {self.path}") from exc
         results = []
         for record in payload.get("records", []):
             score = sum(
@@ -97,11 +100,16 @@ class ChromaVectorIndex:
             )
 
     def search(self, query: str, top_k: int) -> list[SearchResult]:
-        collection = self._client().get_collection(self.collection)
-        response = collection.query(
-            query_embeddings=[embed_text(query)],
-            n_results=top_k,
-        )
+        try:
+            collection = self._client().get_collection(self.collection)
+            response = collection.query(
+                query_embeddings=[embed_text(query)],
+                n_results=top_k,
+            )
+        except KlibError:
+            raise
+        except Exception as exc:
+            raise KlibError(f"Chroma search failed: {exc}") from exc
         results = []
         for index, chunk_id in enumerate(response["ids"][0]):
             metadata = response["metadatas"][0][index]
@@ -125,41 +133,53 @@ class QdrantVectorIndex:
         self.collection = collection
 
     def build(self, chunks: list[dict[str, Any]]) -> None:
-        response = httpx.put(
-            f"{self.url}/collections/{self.collection}",
-            json={"vectors": {"size": VECTOR_SIZE, "distance": "Cosine"}},
-            timeout=30,
-        )
-        response.raise_for_status()
-        points = [
-            {
-                "id": _point_id(chunk["id"]),
-                "vector": embed_text(chunk["text"]),
-                "payload": {
-                    "chunk_id": chunk["id"],
-                    "source_id": chunk["source_id"],
-                    "source_title": chunk["source_title"],
-                    "text": chunk["text"],
-                    "metadata": chunk.get("metadata", {}),
-                },
-            }
-            for chunk in chunks
-        ]
-        for start in range(0, len(points), 100):
+        try:
+            response = httpx.delete(
+                f"{self.url}/collections/{self.collection}",
+                timeout=30,
+            )
+            if response.status_code != 404:
+                response.raise_for_status()
             response = httpx.put(
-                f"{self.url}/collections/{self.collection}/points",
-                json={"points": points[start : start + 100]},
-                timeout=60,
+                f"{self.url}/collections/{self.collection}",
+                json={"vectors": {"size": VECTOR_SIZE, "distance": "Cosine"}},
+                timeout=30,
             )
             response.raise_for_status()
+            points = [
+                {
+                    "id": _point_id(chunk["id"]),
+                    "vector": embed_text(chunk["text"]),
+                    "payload": {
+                        "chunk_id": chunk["id"],
+                        "source_id": chunk["source_id"],
+                        "source_title": chunk["source_title"],
+                        "text": chunk["text"],
+                        "metadata": chunk.get("metadata", {}),
+                    },
+                }
+                for chunk in chunks
+            ]
+            for start in range(0, len(points), 100):
+                response = httpx.put(
+                    f"{self.url}/collections/{self.collection}/points",
+                    json={"points": points[start : start + 100]},
+                    timeout=60,
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise KlibError(f"Qdrant index build failed: {exc}") from exc
 
     def search(self, query: str, top_k: int) -> list[SearchResult]:
-        response = httpx.post(
-            f"{self.url}/collections/{self.collection}/points/search",
-            json={"vector": embed_text(query), "limit": top_k, "with_payload": True},
-            timeout=30,
-        )
-        response.raise_for_status()
+        try:
+            response = httpx.post(
+                f"{self.url}/collections/{self.collection}/points/search",
+                json={"vector": embed_text(query), "limit": top_k, "with_payload": True},
+                timeout=30,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise KlibError(f"Qdrant search failed: {exc}") from exc
         return [
             SearchResult(
                 chunk_id=item["payload"]["chunk_id"],

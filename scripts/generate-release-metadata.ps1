@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $ReleaseDir = Join-Path $Root "dist\release"
+$Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
 
 function Assert-NativeSuccess {
@@ -34,8 +35,13 @@ Assert-NativeSuccess "Python dependency audit"
 
 Push-Location (Join-Path $Root "apps\desktop")
 try {
-    npm sbom --sbom-format cyclonedx > (Join-Path $ReleaseDir "sbom-npm.cdx.json")
+    $NpmSbom = npm sbom --sbom-format cyclonedx
     Assert-NativeSuccess "npm SBOM generation"
+    [System.IO.File]::WriteAllText(
+        (Join-Path $ReleaseDir "sbom-npm.cdx.json"),
+        ($NpmSbom -join [Environment]::NewLine),
+        $Utf8NoBom
+    )
 }
 finally {
     Pop-Location
@@ -43,8 +49,13 @@ finally {
 
 Push-Location (Join-Path $Root "apps\desktop\src-tauri")
 try {
-    cargo metadata --format-version 1 > (Join-Path $ReleaseDir "sbom-rust-metadata.json")
+    $RustMetadata = cargo metadata --format-version 1
     Assert-NativeSuccess "Rust dependency metadata generation"
+    [System.IO.File]::WriteAllText(
+        (Join-Path $ReleaseDir "sbom-rust-metadata.json"),
+        ($RustMetadata -join [Environment]::NewLine),
+        $Utf8NoBom
+    )
 }
 finally {
     Pop-Location

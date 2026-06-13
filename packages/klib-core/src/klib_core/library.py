@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import stat
+import tempfile
 import uuid
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
+
+from jsonschema import Draft202012Validator
 
 from .database import Database
 from .errors import KlibError, LibraryNotFoundError, ManifestValidationError
 from .files import extract_document, iter_source_files
-from .manifest import load_manifest, save_manifest
+from .manifest import load_manifest, save_manifest, validate_manifest_data
 from .models import Manifest, utc_now
 from .trust import scan_prompt_injection, trust_risk_score
 
@@ -26,6 +31,11 @@ PACKAGE_DIRECTORIES = (
     "build",
     "build/snapshots",
 )
+TRUST_LEVELS = {"trusted", "user_added", "flagged", "blocked"}
+EVAL_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+MAX_ARCHIVE_MEMBERS = 10_000
+MAX_ARCHIVE_MEMBER_BYTES = 256 * 1024 * 1024
+MAX_ARCHIVE_TOTAL_BYTES = 1024 * 1024 * 1024
 
 
 def slugify(value: str) -> str:
@@ -37,7 +47,11 @@ def slugify(value: str) -> str:
 
 class LibraryManager:
     def __init__(self, home: Path | None = None):
-        self.home = (home or Path.home() / ".klib-forge").resolve()
+        configured_home = os.getenv("KLIB_HOME")
+        self.home = (
+            home
+            or (Path(configured_home) if configured_home else Path.home() / ".klib-forge")
+        ).resolve()
         self.libraries_dir = self.home / "libraries"
         self.libraries_dir.mkdir(parents=True, exist_ok=True)
         self.db = Database(self.home / "forge.db")
@@ -53,6 +67,23 @@ class LibraryManager:
     ) -> Manifest:
         resolved_id = slugify(library_id or name)
         library_path = (path or self.libraries_dir / resolved_id).resolve()
+        existing_id = self.db.fetch_one(
+            "SELECT path FROM libraries WHERE id = ?",
+            (resolved_id,),
+        )
+        if existing_id:
+            raise KlibError(
+                f"Library id is already registered at {existing_id['path']}: {resolved_id}"
+            )
+        existing_path = self.db.fetch_one(
+            "SELECT id FROM libraries WHERE path = ?",
+            (str(library_path),),
+        )
+        if existing_path:
+            raise KlibError(
+                f"Target directory is already registered as {existing_path['id']}: "
+                f"{library_path}"
+            )
         if library_path.exists() and any(library_path.iterdir()):
             raise KlibError(f"Target directory is not empty: {library_path}")
         library_path.mkdir(parents=True, exist_ok=True)
@@ -100,6 +131,7 @@ class LibraryManager:
                 manifest.updated_at,
             ),
         )
+        self._sync_sources(manifest, library_path)
         return manifest
 
     def list(self) -> list[dict[str, Any]]:
@@ -124,10 +156,11 @@ class LibraryManager:
 
     def delete(self, identifier: str, *, remove_files: bool = False) -> None:
         manifest, path = self.get(identifier)
-        self.db.execute("DELETE FROM libraries WHERE id = ?", (manifest.id,))
         if remove_files:
             if self.libraries_dir not in path.parents:
                 raise KlibError("Refusing to delete a library outside the managed K-LIB home")
+        self.db.execute("DELETE FROM libraries WHERE id = ?", (manifest.id,))
+        if remove_files:
             shutil.rmtree(path)
 
     def export(self, identifier: str | Path, destination: Path) -> Path:
@@ -135,10 +168,14 @@ class LibraryManager:
         destination = destination.resolve()
         if destination.suffix.casefold() != ".klib":
             destination = destination.with_suffix(".klib")
+        if source == destination or source in destination.parents:
+            raise KlibError("Export destination must be outside the package directory")
         destination.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for path in source.rglob("*"):
                 if path.is_file():
+                    if path.is_symlink():
+                        raise KlibError(f"Refusing to export symbolic link: {path}")
                     archive.write(path, Path(manifest.id) / path.relative_to(source))
         return destination
 
@@ -147,27 +184,39 @@ class LibraryManager:
         if not zipfile.is_zipfile(archive_path):
             raise KlibError(f"Not a valid .klib ZIP package: {archive_path}")
         with zipfile.ZipFile(archive_path) as archive:
-            members = archive.infolist()
-            roots = {
-                Path(member.filename).parts[0]
-                for member in members
-                if Path(member.filename).parts
-            }
-            if len(roots) != 1:
-                raise KlibError("A .klib archive must contain one top-level library directory")
-            root = next(iter(roots))
+            members, root, manifest = self._validate_archive(archive)
+            existing_id = self.db.fetch_one(
+                "SELECT path FROM libraries WHERE id = ?",
+                (manifest.id,),
+            )
+            if existing_id:
+                raise KlibError(
+                    f"Library id is already registered at {existing_id['path']}: "
+                    f"{manifest.id}"
+                )
             target_parent = (destination or self.libraries_dir).resolve()
+            target_parent.mkdir(parents=True, exist_ok=True)
             target = target_parent / root
             if target.exists():
                 raise KlibError(f"Import target already exists: {target}")
-            for member in members:
-                resolved = (target_parent / member.filename).resolve()
-                if target_parent not in resolved.parents and resolved != target_parent:
-                    raise KlibError("Archive contains an unsafe path")
-            archive.extractall(target_parent)
+            with tempfile.TemporaryDirectory(
+                prefix=".klib-import-",
+                dir=target_parent,
+            ) as temporary:
+                staging_parent = Path(temporary)
+                for member in members:
+                    archive.extract(member, staging_parent)
+                staging_target = staging_parent / root
+                if not staging_target.is_dir():
+                    raise KlibError("Archive does not contain a package directory")
+                shutil.move(str(staging_target), target)
         try:
-            return self.register(target)
-        except ManifestValidationError:
+            registered = self.register(target)
+            if registered.id != manifest.id:
+                raise KlibError("Imported manifest changed during extraction")
+            return registered
+        except (KlibError, ManifestValidationError):
+            self.db.execute("DELETE FROM libraries WHERE id = ?", (manifest.id,))
             shutil.rmtree(target, ignore_errors=True)
             raise
 
@@ -206,13 +255,13 @@ class LibraryManager:
         manifest, library_path = self.get(identifier)
         added = []
         for source in iter_source_files(source_path.resolve()):
-            source_id = uuid.uuid4().hex
-            destination = library_path / "sources" / f"{source_id}-{source.name}"
-            shutil.copy2(source, destination)
             document = extract_document(source)
             findings = scan_prompt_injection(document.text)
             risk_score = trust_risk_score(findings)
             trust_level = "flagged" if risk_score >= 40 else "user_added"
+            source_id = uuid.uuid4().hex
+            destination = library_path / "sources" / f"{source_id}-{source.name}"
+            shutil.copy2(source, destination)
             item = {
                 "id": source_id,
                 "library_id": manifest.id,
@@ -230,23 +279,11 @@ class LibraryManager:
                 },
                 "created_at": utc_now(),
             }
-            self.db.execute(
-                """
-                INSERT INTO sources
-                    (id, library_id, title, type, path, trust_level, metadata_json, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    item["id"],
-                    item["library_id"],
-                    item["title"],
-                    item["type"],
-                    item["path"],
-                    item["trust_level"],
-                    self.db.json(item["metadata"]),
-                    item["created_at"],
-                ),
-            )
+            try:
+                self._insert_source(item)
+            except Exception:
+                destination.unlink(missing_ok=True)
+                raise
             added.append(item)
         if added:
             self._touch(identifier)
@@ -292,6 +329,10 @@ class LibraryManager:
             raise KlibError(f"Source not found: {source_id}")
         resolved_title = title if title is not None else source["title"]
         resolved_trust = trust_level if trust_level is not None else source["trust_level"]
+        if resolved_trust not in TRUST_LEVELS:
+            raise KlibError(
+                "Source trust level must be trusted, user_added, flagged, or blocked"
+            )
         self.db.execute(
             "UPDATE sources SET title = ?, trust_level = ? WHERE id = ?",
             (resolved_title, resolved_trust, source_id),
@@ -454,15 +495,17 @@ class LibraryManager:
         items = []
         for eval_path in sorted((path / "evals").glob("*.json")):
             try:
-                items.append(json.loads(eval_path.read_text(encoding="utf-8-sig")))
-            except json.JSONDecodeError:
-                continue
+                payload = json.loads(eval_path.read_text(encoding="utf-8-sig"))
+            except json.JSONDecodeError as exc:
+                raise KlibError(f"Eval file is invalid JSON: {eval_path.name}") from exc
+            items.append(self._validate_eval(payload))
         return items
 
     def save_eval(self, identifier: str | Path, eval_data: dict[str, Any]) -> dict[str, Any]:
         _, path = self.get(identifier)
         eval_id = str(eval_data.get("id") or f"eval-{uuid.uuid4().hex[:12]}")
-        payload = {**eval_data, "id": eval_id}
+        self._validate_eval_id(eval_id)
+        payload = self._validate_eval({**eval_data, "id": eval_id})
         (path / "evals" / f"{eval_id}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -472,6 +515,7 @@ class LibraryManager:
 
     def delete_eval(self, identifier: str | Path, eval_id: str) -> None:
         _, path = self.get(identifier)
+        self._validate_eval_id(eval_id)
         target = path / "evals" / f"{eval_id}.json"
         if not target.exists():
             raise KlibError(f"Eval not found: {eval_id}")
@@ -572,6 +616,159 @@ class LibraryManager:
             )
         (path / "rules.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
         self._touch(identifier)
+
+    def _sync_sources(self, manifest: Manifest, library_path: Path) -> None:
+        sources_path = library_path / "sources"
+        sources_path.mkdir(parents=True, exist_ok=True)
+        existing = {
+            item["path"]: item
+            for item in self.db.fetch_all(
+                "SELECT * FROM sources WHERE library_id = ?",
+                (manifest.id,),
+            )
+        }
+        discovered_paths: set[str] = set()
+        for source in iter_source_files(sources_path):
+            relative = str(source.relative_to(library_path))
+            discovered_paths.add(relative)
+            if relative in existing:
+                continue
+            source_id, title = self._source_identity(manifest.id, relative)
+            collision = self.db.fetch_one(
+                "SELECT library_id FROM sources WHERE id = ?",
+                (source_id,),
+            )
+            if collision and collision["library_id"] != manifest.id:
+                source_id = uuid.uuid4().hex
+            document = extract_document(source)
+            findings = scan_prompt_injection(document.text)
+            risk_score = trust_risk_score(findings)
+            item = {
+                "id": source_id,
+                "library_id": manifest.id,
+                "title": title,
+                "type": source.suffix.lower().lstrip("."),
+                "path": relative,
+                "trust_level": "flagged" if risk_score >= 40 else "user_added",
+                "metadata": {
+                    **document.metadata,
+                    "risk_score": risk_score,
+                    "trust_findings": [
+                        finding.model_dump(mode="json") for finding in findings
+                    ],
+                },
+                "created_at": utc_now(),
+            }
+            self._insert_source(item)
+        for relative, item in existing.items():
+            if relative not in discovered_paths:
+                self.db.execute("DELETE FROM sources WHERE id = ?", (item["id"],))
+
+    def _insert_source(self, item: dict[str, Any]) -> None:
+        self.db.execute(
+            """
+            INSERT INTO sources
+                (id, library_id, title, type, path, trust_level, metadata_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                item["id"],
+                item["library_id"],
+                item["title"],
+                item["type"],
+                item["path"],
+                item["trust_level"],
+                self.db.json(item["metadata"]),
+                item["created_at"],
+            ),
+        )
+
+    @staticmethod
+    def _source_identity(library_id: str, relative_path: str) -> tuple[str, str]:
+        filename = Path(relative_path).name
+        match = re.match(r"^([0-9a-f]{32})-(.+)$", filename)
+        if match:
+            return match.group(1), match.group(2)
+        source_id = uuid.uuid5(uuid.NAMESPACE_URL, f"klib:{library_id}:{relative_path}").hex
+        return source_id, filename
+
+    @staticmethod
+    def _validate_eval_id(eval_id: str) -> None:
+        if not EVAL_ID_PATTERN.fullmatch(eval_id):
+            raise KlibError(
+                "Eval id must start with a letter or number and contain only "
+                "letters, numbers, dots, underscores, or hyphens"
+            )
+
+    @staticmethod
+    def _validate_eval(payload: dict[str, Any]) -> dict[str, Any]:
+        schema_path = Path(__file__).resolve().parent / "schemas" / "eval.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        errors = sorted(
+            Draft202012Validator(schema).iter_errors(payload),
+            key=lambda item: list(item.path),
+        )
+        if errors:
+            detail = "; ".join(error.message for error in errors)
+            raise KlibError(f"Eval is invalid: {detail}")
+        LibraryManager._validate_eval_id(str(payload["id"]))
+        return payload
+
+    @staticmethod
+    def _validate_archive(
+        archive: zipfile.ZipFile,
+    ) -> tuple[list[zipfile.ZipInfo], str, Manifest]:
+        members = archive.infolist()
+        if not members:
+            raise KlibError("A .klib archive is empty")
+        if len(members) > MAX_ARCHIVE_MEMBERS:
+            raise KlibError("A .klib archive contains too many entries")
+        total_size = 0
+        roots: set[str] = set()
+        names: set[str] = set()
+        normalized_members: list[zipfile.ZipInfo] = []
+        for member in members:
+            normalized_name = member.filename.replace("\\", "/")
+            pure_path = PurePosixPath(normalized_name)
+            parts = pure_path.parts
+            if (
+                not parts
+                or pure_path.is_absolute()
+                or re.match(r"^[A-Za-z]:", normalized_name)
+                or any(part in {"", ".", ".."} for part in parts)
+            ):
+                raise KlibError("Archive contains an unsafe path")
+            normalized_key = normalized_name.rstrip("/").casefold()
+            if normalized_key in names:
+                raise KlibError("Archive contains duplicate paths")
+            names.add(normalized_key)
+            roots.add(parts[0])
+            if member.flag_bits & 0x1:
+                raise KlibError("Encrypted .klib archives are not supported")
+            mode = (member.external_attr >> 16) & 0o170000
+            if mode == stat.S_IFLNK:
+                raise KlibError("Archive contains a symbolic link")
+            if member.file_size > MAX_ARCHIVE_MEMBER_BYTES:
+                raise KlibError(f"Archive member is too large: {member.filename}")
+            total_size += member.file_size
+            if total_size > MAX_ARCHIVE_TOTAL_BYTES:
+                raise KlibError("Archive uncompressed size is too large")
+            member.filename = normalized_name
+            normalized_members.append(member)
+        if len(roots) != 1:
+            raise KlibError("A .klib archive must contain one top-level library directory")
+        root = next(iter(roots))
+        manifest_name = f"{root}/manifest.json"
+        try:
+            manifest_data = json.loads(archive.read(manifest_name).decode("utf-8-sig"))
+        except KeyError as exc:
+            raise KlibError("A .klib archive must contain manifest.json") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise KlibError("Archive manifest is invalid") from exc
+        manifest = validate_manifest_data(manifest_data)
+        if root != manifest.id:
+            raise KlibError("Archive top-level directory must match manifest id")
+        return normalized_members, root, manifest
 
     @staticmethod
     def _write_json(path: Path, value: Any) -> None:
