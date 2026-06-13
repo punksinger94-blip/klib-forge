@@ -15,7 +15,13 @@ from klib_core.benchmarks import (
 from klib_core.errors import KlibError, ModelProviderError
 from klib_core.mcp_server import _handle
 from klib_core.profiles import ModelProfileManager
-from klib_core.providers import OpenAICompatibleProvider, get_provider
+from klib_core.providers import (
+    AnthropicProvider,
+    OpenAICompatibleProvider,
+    get_provider,
+    is_local_provider,
+    provider_specs,
+)
 from klib_core.sdk import KlibRuntime
 from klib_core.trust import scan_prompt_injection
 
@@ -323,6 +329,79 @@ def test_openai_compatible_provider_retries_transient_status(monkeypatch) -> Non
 
     assert output == "recovered"
     assert responses == []
+
+
+def test_provider_registry_has_unique_ids_and_unrestricted_model_routing(
+    monkeypatch,
+) -> None:
+    specs = provider_specs()
+    ids = [item["provider"] for item in specs]
+    assert len(ids) == len(set(ids))
+    assert is_local_provider("ollama")
+    assert is_local_provider("vllm")
+    assert not is_local_provider("anthropic")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-secret")
+    gemini = get_provider("gemini")
+    assert isinstance(gemini, OpenAICompatibleProvider)
+    assert gemini.base_url.endswith("/v1beta/openai")
+
+    custom = get_provider(
+        "openai-compatible",
+        base_url="https://models.example/v1",
+        api_key="custom-secret",
+    )
+    assert isinstance(custom, OpenAICompatibleProvider)
+    assert custom.base_url == "https://models.example/v1"
+    assert custom.api_key == "custom-secret"
+
+    for spec in specs:
+        if spec["provider"] == "mock":
+            continue
+        connector = get_provider(
+            spec["provider"],
+            base_url=spec["default_base_url"] or "https://models.example/v1",
+            api_key="test-secret",
+        )
+        assert isinstance(connector, (OpenAICompatibleProvider, AnthropicProvider))
+
+
+def test_anthropic_provider_uses_messages_api(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_post(url: str, **kwargs) -> httpx.Response:
+        captured["url"] = url
+        captured.update(kwargs)
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={
+                "content": [
+                    {"type": "text", "text": "Evidence"},
+                    {"type": "text", "text": " accepted"},
+                ]
+            },
+        )
+
+    monkeypatch.setattr("klib_core.providers.httpx.post", fake_post)
+    provider = AnthropicProvider("https://api.anthropic.com", "anthropic-secret")
+    output = provider.chat(
+        [
+            {"role": "system", "content": "Ground every claim."},
+            {"role": "user", "content": "Summarize the evidence."},
+        ],
+        "claude-test-model",
+        {"max_tokens": 512},
+    )
+
+    assert output == "Evidence accepted"
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert captured["headers"]["x-api-key"] == "anthropic-secret"
+    assert captured["json"]["model"] == "claude-test-model"
+    assert captured["json"]["system"] == "Ground every claim."
+    assert captured["json"]["messages"] == [
+        {"role": "user", "content": "Summarize the evidence."}
+    ]
 
 
 def test_hybrid_retrieval_suggestions_trust_and_crud(

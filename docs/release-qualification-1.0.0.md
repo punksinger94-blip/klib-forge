@@ -19,13 +19,13 @@ Public publication remains blocked until:
 | Gate | Result |
 | --- | --- |
 | Ruff | Pass |
-| Python tests | 33 passed |
-| Python coverage | 85.95% |
+| Python tests | 36 passed |
+| Python coverage | 86% |
 | TypeScript and Vite production build | Pass |
 | Rust format, clippy, tests, and locked build | Pass |
 | Python runtime and development dependency audits | No known vulnerabilities |
 | npm production and full dependency audits | No known vulnerabilities |
-| RustSec audit | No vulnerabilities; 16 unmaintained transitive warnings |
+| RustSec audit | No vulnerabilities; 17 allowed transitive warnings |
 | Schema parity and Draft 2020-12 validation | Pass |
 | Repository and experiment secret scans | Pass |
 | Wheel and sdist metadata validation | Pass |
@@ -38,14 +38,16 @@ Public publication remains blocked until:
   example, export, import, rebuild, and search round trips.
 - The installed MCP executable completed initialize, notification, tool list,
   and search calls over stdio JSON-RPC.
-- A live Uvicorn process and `KlibApiClient` completed CRUD, source ingestion,
-  compile, search, mock ask, correction review, eval, profiles, export, and
-  error-status checks.
+- The installed API exposed the complete provider and example catalogs,
+  installed the production incident package, and completed a grounded mock ask.
 - The frozen PyInstaller sidecar completed health, capability detection,
-  create, source ingestion, compile, and search checks.
+  provider-catalog, and example-catalog checks.
 - The NSIS artifact completed silent install, desktop launch, dynamic managed
   backend startup, graceful shutdown with backend cleanup, and silent uninstall
   with no files left behind.
+
+Installer SHA-256:
+`035e65272b7b5a6e29d955d23df0aec380587dd3433cf22650bc55b94de6c7a5`.
 
 ## Desktop Browser Tests
 
@@ -54,9 +56,34 @@ All 12 desktop views rendered without console errors after fixes:
 Dashboard, Sources, Glossary, Rules, Examples, Suggestions, Corrections,
 Playground, Eval Arena, Run History, Knowledge Diff, and Settings.
 
-Browser interactions covered demo installation, glossary editing, mock
-retrieval and generation, correction creation and approval, regression evals,
-same-model arena comparison, and unavailable-Chroma capability messaging.
+Browser interactions covered the advanced biomedical example installation,
+five-source retrieval, mock generation, dynamic provider catalogs in Playground
+and Eval Arena, provider settings, and a final all-view sweep.
+
+## Provider Compatibility
+
+- 23 named connector profiles are exposed consistently in the core, CLI, API,
+  and desktop.
+- Anthropic uses its native Messages API request and response contract.
+- OpenAI, Azure OpenAI, NVIDIA NIM, Gemini, Groq, xAI, Mistral, OpenRouter,
+  DeepSeek, Together, Fireworks, Perplexity, Cerebras, SambaNova, Amazon
+  Bedrock Mantle, and major local runtimes use OpenAI-compatible text-chat
+  transport.
+- `openai-compatible` accepts arbitrary base URLs for additional providers.
+- Model identifiers are passed through without an allowlist, so new text-chat
+  models do not require a K-LIB Forge release.
+
+This surface does not claim vendor-specific image, audio, tool, or batch API
+compatibility.
+
+## Built-in Examples
+
+- Biomedical Evidence Synthesis: five curated primary studies and five
+  citation-aware quantitative evals.
+- Production Incident Response: three operational sources and three
+  evidence-preserving incident evals.
+
+The former Arabic technical translation demo and endpoint were removed.
 
 ## NVIDIA MiniMax M3 Tests
 
@@ -86,6 +113,8 @@ are stored in them.
 - The desktop detects unavailable optional adapters.
 - Eval counts and same-model arena rendering remain consistent.
 - Release SBOM metadata is emitted and validated as portable UTF-8 JSON.
+- Provider definitions now come from one registry shared by every interface.
+- Advanced examples now come from one idempotent install catalog.
 
 ## Residual Risk
 
@@ -96,3 +125,9 @@ are stored in them.
 - Qdrant requires an external service; its HTTP contract and failure behavior
   were tested without a live local Qdrant instance.
 - The unsigned local installer is a candidate artifact only.
+- The workstation has no publicly trusted code-signing certificate; the only
+  available private-key certificate is an untrusted test-driver certificate
+  and was deliberately not used.
+- GitHub CLI is not installed/authenticated, no canonical `origin` exists, and
+  no repository is currently available under `punksinger94-blip` through the
+  connected GitHub integration.

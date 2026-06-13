@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   api,
   AskResult,
+  BuiltinExample,
   Capabilities,
   getApiBase,
   initializeRuntime,
@@ -9,6 +10,7 @@ import {
   LibraryDetail,
   ModelProfile,
   ModelRun,
+  ProviderInfo,
   SearchResult,
   setApiBase,
   Source,
@@ -43,6 +45,26 @@ const navigation: Array<{ id: View; label: string; eyebrow: string }> = [
   { id: "diff", label: "Knowledge Diff", eyebrow: "11" },
   { id: "settings", label: "Settings", eyebrow: "12" },
 ];
+
+function useProviders(): ProviderInfo[] {
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  useEffect(() => {
+    void api.models().then(setProviders).catch(() => setProviders([]));
+  }, []);
+  return providers;
+}
+
+function ProviderOptions({ providers }: { providers: ProviderInfo[] }) {
+  return (
+    <>
+      {providers.map((item) => (
+        <option value={item.provider} key={item.provider}>
+          {item.name}
+        </option>
+      ))}
+    </>
+  );
+}
 
 function App() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -266,6 +288,10 @@ function Overview({
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("general");
   const [description, setDescription] = useState("");
+  const [catalog, setCatalog] = useState<BuiltinExample[]>([]);
+  useEffect(() => {
+    void api.builtinExamples().then(setCatalog).catch(() => setCatalog([]));
+  }, []);
 
   function create(event: FormEvent) {
     event.preventDefault();
@@ -279,15 +305,15 @@ function Overview({
     });
   }
 
-  function installExample() {
+  function installExample(example: BuiltinExample) {
     void run(async () => {
-      const result = await api.installExample();
+      const result = await api.installExample(example.id);
       await refresh();
       select(result.library.manifest.id);
       setNotice(
         result.created
-          ? "Installed and compiled the Arabic Technical Translation demo."
-          : "The demo library is already installed.",
+          ? `Installed and compiled ${example.name}.`
+          : `${example.name} is already installed.`,
       );
     });
   }
@@ -332,10 +358,17 @@ function Overview({
           </p>
           {!libraries.length && (
             <div className="hero-actions">
-              <button className="button primary" onClick={installExample}>
-                Install ready-to-run demo
-              </button>
-              <span>No model download required</span>
+              {catalog.map((example) => (
+                <button
+                  className="button primary"
+                  key={example.id}
+                  onClick={() => installExample(example)}
+                  title={`${example.source_count} sources, ${example.eval_count} evals`}
+                >
+                  Install {example.name}
+                </button>
+              ))}
+              <span>Advanced offline-ready examples</span>
             </div>
           )}
         </div>
@@ -883,6 +916,7 @@ function Playground({
   const [result, setResult] = useState<AskResult | null>(null);
   const [corrected, setCorrected] = useState("");
   const [lesson, setLesson] = useState("");
+  const providers = useProviders();
   useEffect(() => void api.profiles().then(setProfiles), []);
 
   function submit(event: FormEvent) {
@@ -918,7 +952,7 @@ function Playground({
             const profile = profiles.find((item) => item.id === event.target.value);
             if (profile) { setProvider(profile.provider); setModel(profile.model); setBaseUrl(profile.base_url || ""); }
           }}><option value="">Custom</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select></label>
-          <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select></label>
+          <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><ProviderOptions providers={providers} /></select></label>
           <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} /></label>
           <label>Base URL<input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="Provider default" /></label>
         </div>
@@ -972,6 +1006,7 @@ function Evals({
   const [evalName, setEvalName] = useState("");
   const [evalInput, setEvalInput] = useState("");
   const [mustInclude, setMustInclude] = useState("");
+  const providers = useProviders();
   const loadEvals = useCallback(() => api.evals(id).then(setEvals), [id]);
   useEffect(() => void loadEvals(), [loadEvals]);
 
@@ -1025,10 +1060,10 @@ function Evals({
     <div className="panel eval-panel">
       <div className="panel-heading">
         <div><span className="kicker">REGRESSION TESTING</span><h3>Eval Arena</h3></div>
-        <div className="inline-controls"><select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select><input value={model} onChange={(event) => setModel(event.target.value)} /><button className="button primary" onClick={evaluate}>Run evals</button></div>
+        <div className="inline-controls"><select value={provider} onChange={(event) => setProvider(event.target.value)}><ProviderOptions providers={providers} /></select><input value={model} onChange={(event) => setModel(event.target.value)} /><button className="button primary" onClick={evaluate}>Run evals</button></div>
       </div>
       <div className="arena-controls">
-        <select value={secondProvider} onChange={(event) => setSecondProvider(event.target.value)}><option>mock</option><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option></select>
+        <select value={secondProvider} onChange={(event) => setSecondProvider(event.target.value)}><ProviderOptions providers={providers} /></select>
         <input value={secondModel} onChange={(event) => setSecondModel(event.target.value)} />
         <button className="button secondary" onClick={compare}>Compare two models</button>
         {arena.map((item, index) => <span className="score-pill" key={`${item.name}-${index}`}>{item.name}: {item.average.toFixed(1)}</span>)}
@@ -1136,6 +1171,7 @@ function Settings({
   const [hybrid, setHybrid] = useState(
     detail?.manifest.retrieval_policy.use_hybrid_search || false,
   );
+  const providers = useProviders();
   const loadProfiles = useCallback(() => api.profiles().then(setProfiles), []);
   useEffect(() => void loadProfiles(), [loadProfiles]);
   useEffect(() => {
@@ -1224,7 +1260,7 @@ function Settings({
         <label>Name<input value={packageName} onChange={(event) => setPackageName(event.target.value)} /></label>
         <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <label>Domain<input value={domain} onChange={(event) => setDomain(event.target.value)} /></label>
-        <label>Default provider<input value={defaultProvider} onChange={(event) => setDefaultProvider(event.target.value)} /></label>
+        <label>Default provider<select value={defaultProvider} onChange={(event) => setDefaultProvider(event.target.value)}><ProviderOptions providers={providers} /></select></label>
         <label>Default model<input value={defaultModel} onChange={(event) => setDefaultModel(event.target.value)} /></label>
         <label className="check-label"><input type="checkbox" checked={allowOnline} onChange={(event) => setAllowOnline(event.target.checked)} /> Allow online model providers</label>
         <button className="button primary" onClick={savePackage} disabled={!detail}>Save package</button>
@@ -1245,7 +1281,7 @@ function Settings({
       <form className="panel settings-panel" onSubmit={saveProfile}>
         <span className="kicker">MODEL PROFILES</span><h3>Reusable connector</h3>
         <label>Name<input value={profileName} onChange={(event) => setProfileName(event.target.value)} required /></label>
-        <label>Provider<input value={provider} onChange={(event) => setProvider(event.target.value)} required /></label>
+        <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)} required><ProviderOptions providers={providers} /></select></label>
         <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} required /></label>
         <label>Base URL<input value={profileBase} onChange={(event) => setProfileBase(event.target.value)} /></label>
         <label>API-key environment variable<input value={apiKeyEnv} onChange={(event) => setApiKeyEnv(event.target.value)} placeholder="NVIDIA_API_KEY" /></label>

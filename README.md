@@ -8,17 +8,21 @@ models.
 
 **Build once. Run on any model.**
 
+The built-in catalog includes primary-literature biomedical evidence synthesis
+and production incident response. Browse it with `klib example-catalog` and
+install a package with `klib install-example EXAMPLE_ID`.
+
 ## 1.0 capabilities
 
 - Strict `.klib` package format with JSON Schema validation
 - CLI, FastAPI service, React desktop UI, and Tauri native shell
 - Self-contained Windows desktop installer with a packaged API sidecar
 - Automatic backend startup, dynamic localhost port selection, and shutdown
-- First-run ready-to-use example with an offline model
+- Advanced first-run examples with an offline model
 - TXT, Markdown, PDF, JSON, and JSONL source ingestion
 - Deterministic TF-IDF and local-vector retrieval, plus optional Chroma and Qdrant
 - Hybrid lexical/vector score fusion
-- Ollama, LM Studio, OpenAI, OpenAI-compatible, and offline mock connectors
+- Native Anthropic and broad OpenAI-compatible provider connectors
 - Layered prompts with glossary, rules, examples, and retrieved evidence
 - Suggested glossary terms, rules, examples, and evals
 - Reviewed corrections that create regression evals
@@ -151,6 +155,19 @@ tests/                           End-to-end core and API tests
 New packages default to local-only model use. Online providers are rejected
 until `model_policy.allow_online_models` is enabled in `manifest.json`.
 K-LIB Forge has no telemetry. See [Privacy and Data](docs/privacy.md).
+
+## Model providers
+
+Run `klib models` for the live connector catalog. Named connectors cover
+OpenAI, Azure OpenAI, Anthropic, NVIDIA NIM, Gemini, Groq, xAI, Mistral,
+OpenRouter, DeepSeek, Together, Fireworks, Perplexity, Cerebras, SambaNova,
+Amazon Bedrock Mantle, Ollama, LM Studio, vLLM, llama.cpp, and text generation
+web UI. Model IDs are passed through without an allowlist, so newly released
+models do not require a K-LIB Forge update.
+
+For any other text-chat service, select `openai-compatible`, set its base URL,
+and provide an API key when required. Vendor-specific image, audio, tool, and
+batch APIs are outside this connector surface.
 
 ## Documentation
 

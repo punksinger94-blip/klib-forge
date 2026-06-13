@@ -16,9 +16,10 @@ from klib_core.benchmarks import (
     install_literature_biology_benchmark,
 )
 from klib_core.errors import KlibError
+from klib_core.examples import install_builtin_example, list_builtin_examples
 from klib_core.library import slugify
 from klib_core.profiles import ModelProfileManager
-from klib_core.providers import get_provider
+from klib_core.providers import get_provider, provider_specs
 
 app = typer.Typer(
     name="klib",
@@ -454,19 +455,25 @@ def import_library(
 def models() -> None:
     """List built-in model connector types."""
 
-    emit(
-        [
-            {"provider": "ollama", "default_base_url": "http://localhost:11434/v1"},
-            {"provider": "lmstudio", "default_base_url": "http://localhost:1234/v1"},
-            {
-                "provider": "nvidia",
-                "default_base_url": "https://integrate.api.nvidia.com/v1",
-            },
-            {"provider": "openai", "default_base_url": "https://api.openai.com/v1"},
-            {"provider": "openai-compatible", "default_base_url": "OPENAI_BASE_URL"},
-            {"provider": "mock", "default_base_url": None},
-        ]
-    )
+    emit(provider_specs())
+
+
+@app.command("example-catalog")
+def example_catalog() -> None:
+    """List advanced built-in example packages."""
+
+    emit(list_builtin_examples())
+
+
+@app.command("install-example")
+def install_example(example_id: str) -> None:
+    """Install and compile an advanced built-in example package."""
+
+    def action() -> None:
+        created, path = install_builtin_example(manager(), example_id)
+        emit({"created": created, "id": example_id, "path": str(path)})
+
+    run_command(action)
 
 
 @app.command("model-test")

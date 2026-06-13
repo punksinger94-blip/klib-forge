@@ -24,7 +24,7 @@ from .models import (
     utc_now,
 )
 from .prompt import build_prompt
-from .providers import get_provider
+from .providers import get_provider, is_local_provider
 from .retrieval import LocalIndex, top_keywords
 from .suggestions import suggest_knowledge
 from .vectors import ChromaVectorIndex, LocalVectorIndex, QdrantVectorIndex
@@ -279,9 +279,8 @@ class ForgeEngine:
         provider_name = provider or manifest.model_policy.default_provider
         model_name = model or manifest.model_policy.default_model
         selected_mode = mode or manifest.default_mode
-        local_providers = {"ollama", "lmstudio", "mock"}
         if (
-            provider_name not in local_providers
+            not is_local_provider(provider_name)
             and not manifest.model_policy.allow_online_models
         ):
             raise KlibError(

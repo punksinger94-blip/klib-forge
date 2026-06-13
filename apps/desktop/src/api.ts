@@ -102,6 +102,26 @@ export type ModelProfile = {
   options: Record<string, unknown>;
 };
 
+export type ProviderInfo = {
+  provider: string;
+  name: string;
+  transport: "mock" | "openai" | "anthropic";
+  default_base_url: string | null;
+  api_key_env: string | null;
+  local: boolean;
+  api_key_required: boolean;
+  base_url_required: boolean;
+};
+
+export type BuiltinExample = {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  source_count: number;
+  eval_count: number;
+};
+
 export type ModelRun = {
   id: string;
   provider: string;
@@ -163,11 +183,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  installExample: () =>
+  builtinExamples: () => request<BuiltinExample[]>("/examples"),
+  installExample: (id: string) =>
     request<{ created: boolean; library: LibraryDetail }>(
-      "/examples/arabic-technical-translation/install",
+      `/examples/${id}/install`,
       { method: "POST" },
     ),
+  models: () => request<ProviderInfo[]>("/models"),
   sources: (id: string) => request<Source[]>(`/libraries/${id}/sources`),
   uploadSource: (id: string, file: File) => {
     const data = new FormData();

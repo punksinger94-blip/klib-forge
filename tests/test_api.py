@@ -47,34 +47,68 @@ def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
     assert asked.json()["retrieved_context"]
 
 
-def test_builtin_example_install_is_ready_and_idempotent(
+def test_builtin_examples_are_advanced_ready_and_idempotent(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("KLIB_HOME", str(tmp_path / "example-home"))
     client = TestClient(app)
 
-    installed = client.post("/examples/arabic-technical-translation/install")
+    catalog = client.get("/examples")
+    assert catalog.status_code == 200
+    assert {item["id"] for item in catalog.json()} == {
+        "biomedical-evidence-synthesis",
+        "production-incident-response",
+    }
+
+    installed = client.post("/examples/biomedical-evidence-synthesis/install")
     assert installed.status_code == 201
     assert installed.json()["created"] is True
-    assert installed.json()["library"]["source_count"] == 1
-    assert installed.json()["library"]["eval_count"] == 1
+    assert installed.json()["library"]["source_count"] == 5
+    assert installed.json()["library"]["eval_count"] == 5
 
     asked = client.post(
-        "/libraries/arabic-technical-translation/ask",
+        "/libraries/biomedical-evidence-synthesis/ask",
         json={
-            "input": "Translate: high latency after deployment.",
+            "input": "Which small RNA regulates ompX at 37 C?",
             "provider": "mock",
             "model": "offline-demo",
         },
     )
     assert asked.status_code == 200
-    assert "زمن الاستجابة" in asked.json()["output"]
-    assert "النشر" in asked.json()["output"]
+    assert "CyaR" in asked.json()["output"]
+    assert "ompX" in asked.json()["output"]
 
-    repeated = client.post("/examples/arabic-technical-translation/install")
+    incident = client.post("/examples/production-incident-response/install")
+    assert incident.status_code == 201
+    assert incident.json()["library"]["source_count"] == 3
+    assert incident.json()["library"]["eval_count"] == 3
+
+    repeated = client.post("/examples/biomedical-evidence-synthesis/install")
     assert repeated.status_code == 201
     assert repeated.json()["created"] is False
+
+    missing = client.post("/examples/does-not-exist/install")
+    assert missing.status_code == 404
+
+
+def test_api_model_catalog_uses_shared_provider_registry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("KLIB_HOME", str(tmp_path / "models-home"))
+    providers = TestClient(app).get("/models")
+    assert providers.status_code == 200
+    ids = {item["provider"] for item in providers.json()}
+    assert {
+        "anthropic",
+        "azure-openai",
+        "bedrock",
+        "gemini",
+        "nvidia",
+        "openai-compatible",
+        "vllm",
+    } <= ids
 
 
 def test_api_editor_suggestions_history_profiles_and_arena(

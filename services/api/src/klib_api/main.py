@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import shutil
 import tempfile
@@ -14,9 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from klib_core import ForgeEngine, LibraryManager, __version__
 from klib_core.errors import KlibError, LibraryNotFoundError
-from klib_core.manifest import save_manifest
+from klib_core.examples import install_builtin_example, list_builtin_examples
 from klib_core.profiles import ModelProfileManager
-from klib_core.providers import get_provider
+from klib_core.providers import get_provider, provider_specs
 from pydantic import BaseModel, Field
 
 
@@ -256,94 +255,15 @@ def update_library(library_id: str, request: LibraryUpdate) -> dict[str, Any]:
     ).model_dump(mode="json")
 
 
-@app.post("/examples/arabic-technical-translation/install", status_code=201)
-def install_arabic_translation_example() -> dict[str, Any]:
-    library_id = "arabic-technical-translation"
-    forge = manager()
-    try:
-        forge.get(library_id)
-        return {"created": False, "library": library_detail(library_id)}
-    except LibraryNotFoundError:
-        pass
+@app.get("/examples")
+def builtin_examples() -> list[dict[str, Any]]:
+    return list_builtin_examples()
 
-    manifest = forge.create(
-        "Arabic Technical Translation",
-        library_id=library_id,
-        description=(
-            "A ready-to-run example for consistent English-to-Arabic "
-            "software terminology."
-        ),
-        domain="translation/software",
-    )
-    manifest.languages = ["en", "ar"]
-    manifest.default_mode = "developer_docs"
-    manifest.supported_tasks = ["translate", "review_translation"]
-    manifest.retrieval_policy.top_k = 6
-    manifest.model_policy.default_provider = "mock"
-    manifest.model_policy.default_model = "offline-demo"
-    _, library_path = forge.get(library_id)
-    save_manifest(library_path, manifest)
-    forge.register(library_path)
 
-    forge.add_glossary(
-        library_id,
-        "latency",
-        "زمن الاستجابة",
-        notes="Use in software and networking contexts.",
-    )
-    forge.add_glossary(
-        library_id,
-        "deployment",
-        "النشر",
-        notes="Use for software deployment.",
-    )
-    forge.add_rule(
-        library_id,
-        "Keep code identifiers, commands, file paths, API names, and model names in English.",
-        title="Preserve technical identifiers",
-        priority=1,
-    )
-    forge.add_rule(
-        library_id,
-        "Use the package glossary whenever a preferred technical term exists.",
-        title="Follow preferred terminology",
-        priority=2,
-    )
-    forge.add_example(
-        library_id,
-        "The server crashed after deployment.",
-        "تعطل الخادم بعد النشر.",
-        task="translate",
-        mode="developer_docs",
-    )
-
-    with tempfile.TemporaryDirectory() as temporary_dir:
-        source_path = Path(temporary_dir) / "software-translation-guide.md"
-        source_path.write_text(
-            "# Software translation guide\n\n"
-            "Translate software behavior precisely and keep code identifiers in English. "
-            "In networking and performance contexts, latency means زمن الاستجابة. "
-            "Deployment means النشر when releasing software to an environment.\n",
-            encoding="utf-8",
-        )
-        forge.add_sources(library_id, source_path)
-
-    eval_data = {
-        "id": "translation-latency-001",
-        "name": "Translate latency and deployment consistently",
-        "task": "translation",
-        "input": "Translate: The app has high latency after deployment.",
-        "checks": {
-            "must_include": ["زمن الاستجابة", "النشر"],
-            "must_not_include": ["تأخير"],
-        },
-    }
-    (library_path / "evals" / "translation-latency-001.json").write_text(
-        json.dumps(eval_data, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    engine().compile(library_id)
-    return {"created": True, "library": library_detail(library_id)}
+@app.post("/examples/{example_id}/install", status_code=201)
+def install_example(example_id: str) -> dict[str, Any]:
+    created, _ = install_builtin_example(manager(), example_id)
+    return {"created": created, "library": library_detail(example_id)}
 
 
 @app.delete("/libraries/{library_id}", status_code=204)
@@ -627,15 +547,8 @@ async def import_library(file: UploadFile = File(...)) -> dict[str, Any]:
 
 
 @app.get("/models")
-def list_models() -> list[dict[str, str | None]]:
-    return [
-        {"provider": "ollama", "base_url": "http://localhost:11434/v1"},
-        {"provider": "lmstudio", "base_url": "http://localhost:1234/v1"},
-        {"provider": "nvidia", "base_url": "https://integrate.api.nvidia.com/v1"},
-        {"provider": "openai", "base_url": "https://api.openai.com/v1"},
-        {"provider": "openai-compatible", "base_url": os.getenv("OPENAI_BASE_URL")},
-        {"provider": "mock", "base_url": None},
-    ]
+def list_models() -> list[dict[str, Any]]:
+    return provider_specs()
 
 
 @app.post("/models/test")
