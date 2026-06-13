@@ -11,6 +11,7 @@
    with trusted publishing for their respective package indexes.
 6. Run `.\scripts\release.ps1` locally. Unsigned candidates require the explicit
    `-AllowUnsigned` switch and are not public-release artifacts.
+   `.\scripts\release-doctor.ps1 -Public` must pass before tagging.
 7. Commit, create the annotated `v1.0.0` tag, and push it.
 8. The release workflow signs the installer, publishes Python artifacts, writes
    SBOM/checksum files, and creates the GitHub release.

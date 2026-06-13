@@ -162,6 +162,9 @@ K-LIB Forge has no telemetry. See [Privacy and Data](docs/privacy.md).
 - [Release process](docs/release.md)
 - [Security policy](SECURITY.md)
 
+Run `.\scripts\release-doctor.ps1` to validate a local release candidate. Add
+`-Public` to require a reachable GitHub origin and a trusted Windows signature.
+
 ## License
 
 K-LIB Forge is licensed under Apache-2.0. Knowledge packages can declare their

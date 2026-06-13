@@ -60,4 +60,14 @@ if (-not $AllowUnsigned -and $Signature.Status -ne "Valid") {
 
 & (Join-Path $Root "scripts\generate-release-metadata.ps1") -Installer $Installer
 
+if ($AllowUnsigned) {
+    & (Join-Path $Root "scripts\release-doctor.ps1")
+}
+else {
+    & (Join-Path $Root "scripts\release-doctor.ps1") -Public
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "Release readiness doctor failed."
+}
+
 Write-Host "Release candidate v$Version passed local preflight."
