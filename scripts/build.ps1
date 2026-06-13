@@ -1,6 +1,12 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Python = Join-Path $Root ".venv\Scripts\python.exe"
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
+$Python = if (Test-Path $VenvPython) {
+    $VenvPython
+}
+else {
+    (Get-Command python -ErrorAction Stop).Source
+}
 $CargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
 
 function Assert-NativeSuccess {
@@ -8,10 +14,6 @@ function Assert-NativeSuccess {
     if ($LASTEXITCODE -ne 0) {
         throw "$Operation failed with exit code $LASTEXITCODE."
     }
-}
-
-if (-not (Test-Path $Python)) {
-    throw "Run .\scripts\bootstrap.ps1 first."
 }
 
 if (Test-Path $CargoBin) {

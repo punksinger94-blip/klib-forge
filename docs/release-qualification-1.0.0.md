@@ -11,7 +11,6 @@ release automation.
 Public publication remains blocked until:
 
 - the Windows installer is Authenticode-signed;
-- a canonical GitHub `origin` is configured and reachable;
 - the `v1.0.0` tag is created and pushed.
 
 The remaining sequence is automated by
@@ -133,6 +132,6 @@ are stored in them.
 - The workstation has no publicly trusted code-signing certificate; the only
   available private-key certificate is an untrusted test-driver certificate
   and was deliberately not used.
-- GitHub CLI is not installed/authenticated, no canonical `origin` exists, and
-  no repository is currently available under `punksinger94-blip` through the
-  connected GitHub integration.
+- The public repository is available at
+  `https://github.com/punksinger94-blip/klib-forge`; GitHub CLI authentication
+  and the canonical HTTPS `origin` are configured.

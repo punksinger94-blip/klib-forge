@@ -11,12 +11,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -54,13 +54,13 @@ jobs:
         run: |
           $installer = (Get-ChildItem "apps\desktop\src-tauri\target\release\bundle\nsis\*-setup.exe" | Select-Object -First 1).FullName
           .\scripts\generate-release-metadata.ps1 -Installer $installer
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-distributions
           path: |
             dist/*.whl
             dist/*.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-bundle
           path: dist/release/*
@@ -74,7 +74,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist
@@ -91,29 +91,30 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    needs: [build, publish-pypi]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-bundle
           path: dist/release
       - uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: docs/release-notes-1.0.0.md
           files: |
             dist/*.whl
             dist/*.tar.gz
