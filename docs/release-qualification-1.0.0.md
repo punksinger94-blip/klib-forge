@@ -51,8 +51,8 @@ session.
   backend startup, graceful shutdown with backend cleanup, and silent uninstall
   with no files left behind.
 
-Installer SHA-256:
-`035e65272b7b5a6e29d955d23df0aec380587dd3433cf22650bc55b94de6c7a5`.
+Installer, wheel, and source archive hashes are generated in
+`dist/release/SHA256SUMS.txt` after the installer is signed.
 
 ## Desktop Browser Tests
 
