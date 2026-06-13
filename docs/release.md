@@ -19,3 +19,21 @@
    SBOM/checksum files, and creates the GitHub release.
 
 Never upload files from an uncleared `dist/` directory.
+
+## Direct public release
+
+When GitHub CLI is installed and authenticated as `punksinger94-blip`, and the
+trusted PFX variables are configured, the final signing and GitHub publication
+can be completed with one command:
+
+```powershell
+$env:WINDOWS_CERTIFICATE_PATH = "C:\secure\trusted-code-signing.pfx"
+$env:WINDOWS_CERTIFICATE_PASSWORD = "<PFX password>"
+gh auth login
+.\scripts\complete-public-release.ps1
+```
+
+The command verifies the GitHub account, creates or reuses
+`punksinger94-blip/klib-forge`, refuses an invalid installer signature, runs the
+public release doctor, pushes `main` and the annotated `v1.0.0` tag, and uploads
+the installer, wheel, source archive, checksums, and all release metadata.

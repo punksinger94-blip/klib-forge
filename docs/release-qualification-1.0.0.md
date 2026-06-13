@@ -14,6 +14,11 @@ Public publication remains blocked until:
 - a canonical GitHub `origin` is configured and reachable;
 - the `v1.0.0` tag is created and pushed.
 
+The remaining sequence is automated by
+`scripts/complete-public-release.ps1`; it intentionally refuses to proceed
+without a trusted signature and an authenticated `punksinger94-blip` GitHub
+session.
+
 ## Automated Gates
 
 | Gate | Result |
