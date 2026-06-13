@@ -5,7 +5,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Python = Join-Path $Root ".venv\Scripts\python.exe"
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
+$Python = if (Test-Path $VenvPython) {
+    $VenvPython
+}
+else {
+    (Get-Command python -ErrorAction Stop).Source
+}
 $ReleaseDir = Join-Path $Root "dist\release"
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
