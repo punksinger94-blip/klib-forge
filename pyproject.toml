@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+
 dependencies = [
   "fastapi>=0.115,<1",
   "httpx>=0.27,<1",
@@ -33,6 +34,11 @@ dependencies = [
   "typer>=0.15,<1",
   "uvicorn>=0.34,<1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/punksinger94-blip/klib-forge"
+Repository = "https://github.com/punksinger94-blip/klib-forge.git"
+Issues = "https://github.com/punksinger94-blip/klib-forge/issues"
 
 [project.optional-dependencies]
 dev = [
