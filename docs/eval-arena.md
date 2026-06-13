@@ -24,3 +24,19 @@ score.
 Use `--crossover` to repeat the experiment with API key assignments swapped.
 This is the preferred real test because it distinguishes a K-LIB effect from a
 credential-specific routing, quota, or timing effect.
+
+## Primary-literature biology benchmark
+
+`klib nvidia-literature-ab` installs a separate package with five questions
+whose expected answer details are held in eval metadata. The questions cover
+recent primary studies and require paper-specific mechanisms, identifiers,
+quantities, and numeric citations.
+
+The baseline receives the question without K-LIB context. The K-LIB condition
+receives a retrieved, concise evidence record containing the study title, DOI,
+source URL, and curated facts. The benchmark therefore measures grounded
+recovery of supplied literature evidence rather than general biological
+expertise.
+
+The included answer key has deterministic automated checks but has not been
+independently reviewed by a biology subject-matter expert.

@@ -1,12 +1,11 @@
 [package]
 name = "klib-forge-desktop"
-version = "0.1.1"
+version = "1.0.0"
 description = "Desktop IDE for portable K-LIB knowledge packages."
 authors = ["K-LIB Forge Contributors"]
 license = "Apache-2.0"
-repository = ""
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.91.1"
 
 [lib]
 name = "klib_forge_desktop_lib"

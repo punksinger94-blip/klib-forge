@@ -28,9 +28,12 @@ def build_prompt(
         f"Input: {item['input']}\nCorrected output: {item['corrected_output']}"
         + (f"\nLesson: {item['lesson']}" if item.get("lesson") else "")
         for item in corrections[-10:]
+        if item.get("status", "approved") == "approved"
     ) or "No corrections."
     context_text = "\n\n".join(
-        f"[{index}] Source: {item.source_title}\n{item.text}"
+        f"[{index}] Source: {item.source_title}"
+        f" | trust={item.metadata.get('trust_level', 'unknown')}"
+        f" | risk={item.metadata.get('risk_score', 0)}\n{item.text}"
         for index, item in enumerate(context, start=1)
     ) or "No matching source context was retrieved."
     citation_rule = (

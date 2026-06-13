@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://klibforge.dev/spec/0.1/manifest.schema.json",
+  "$id": "urn:klib-forge:spec:0.1:manifest",
   "title": "K-LIB Package Manifest",
   "type": "object",
   "required": [
@@ -66,6 +66,15 @@
         },
         "require_citations": {
           "type": "boolean"
+        },
+        "vector_adapter": {
+          "enum": ["local", "chroma", "qdrant"]
+        },
+        "qdrant_url": {
+          "type": "string"
+        },
+        "qdrant_collection": {
+          "type": "string"
         }
       },
       "additionalProperties": true
@@ -89,4 +98,3 @@
   },
   "additionalProperties": true
 }
-

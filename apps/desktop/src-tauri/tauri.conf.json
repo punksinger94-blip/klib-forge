@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "K-LIB Forge",
-  "version": "0.1.1",
-  "identifier": "dev.klibforge.desktop",
+  "version": "1.0.0",
+  "identifier": "com.klibforge.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -28,6 +28,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "externalBin": ["binaries/klib-api"]
+    "externalBin": ["binaries/klib-api"],
+    "publisher": "K-LIB Forge",
+    "copyright": "Copyright 2026 K-LIB Forge Contributors",
+    "shortDescription": "Local-first portable AI knowledge libraries",
+    "longDescription": "Build, test, inspect, and run portable K-LIB knowledge packages."
   }
 }

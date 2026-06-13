@@ -8,7 +8,7 @@ models.
 
 **Build once. Run on any model.**
 
-## v0.1.1 capabilities
+## 1.0 capabilities
 
 - Strict `.klib` package format with JSON Schema validation
 - CLI, FastAPI service, React desktop UI, and Tauri native shell
@@ -16,27 +16,33 @@ models.
 - Automatic backend startup, dynamic localhost port selection, and shutdown
 - First-run ready-to-use example with an offline model
 - TXT, Markdown, PDF, JSON, and JSONL source ingestion
-- Deterministic local chunking, keyword extraction, and TF-IDF retrieval
+- Deterministic TF-IDF and local-vector retrieval, plus optional Chroma and Qdrant
+- Hybrid lexical/vector score fusion
 - Ollama, LM Studio, OpenAI, OpenAI-compatible, and offline mock connectors
 - Layered prompts with glossary, rules, examples, and retrieved evidence
-- Corrections that can create regression evals
-- Basic eval runner and Knowledge Diff snapshots
+- Suggested glossary terms, rules, examples, and evals
+- Reviewed corrections that create regression evals
+- Multi-model Eval Arena and Knowledge Diff snapshots
+- Prompt-injection scanning and per-source trust levels
+- Package editors, model profiles, import/export, run history, and prompt inspection
+- Stable Python SDK and MCP stdio server
 - Safe ZIP-based `.klib` import and export
 - SQLite registry and run history
 
-The default local index deliberately has no model download or hosted service
-dependency. Chroma is available as an optional package extra and is planned as
-an interchangeable vector adapter after the v0.1 package contract stabilizes.
+The default indexes deliberately have no model download or hosted service
+dependency. Chroma is an optional package extra; Qdrant connects to an explicitly
+configured service.
 
 ## Quick start
 
-Requires Python 3.11+ and Node.js 20+. Rust 1.77.2+ is required only for the
-native Tauri executable.
+Requires Python 3.11+ and Node.js 20+. Rust 1.91.1 is required only for native
+desktop development.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+python -m pip install -r requirements\dev-lock.txt
+python -m pip install --no-deps -e .
 
 klib init "My Knowledge Library" --domain research
 Set-Location .\my-knowledge-library
@@ -57,7 +63,7 @@ Start the desktop frontend in another terminal:
 
 ```powershell
 Set-Location apps\desktop
-npm install
+npm ci
 npm run dev
 ```
 
@@ -107,6 +113,26 @@ the report under `build/experiments/`, which Git ignores. The crossover run
 repeats the comparison with key assignments swapped to detect key-specific
 routing or quota effects.
 
+### Primary-literature biology benchmark
+
+The literature benchmark uses five held-out questions backed by curated
+evidence from primary studies in microbial RNA regulation, UPEC virulence,
+marine small proteins, membrane biophysics, and single-cell protein modeling.
+The baseline sees only each question. The K-LIB condition receives retrieved
+study evidence with DOI and source provenance.
+
+```powershell
+.\scripts\run-nvidia-literature-biological-ab.ps1 `
+  -Model "minimaxai/minimax-m3" `
+  -Repeats 3 `
+  -Crossover
+```
+
+This benchmark is literature-backed, but its answer key is not a substitute for
+independent subject-matter-expert review. Large crossover runs can encounter
+provider token-rate limits; the NVIDIA connector retries transient throttling,
+and the wrapper preserves a `.log` beside the JSON report.
+
 ## Repository layout
 
 ```text
@@ -124,6 +150,17 @@ tests/                           End-to-end core and API tests
 
 New packages default to local-only model use. Online providers are rejected
 until `model_policy.allow_online_models` is enabled in `manifest.json`.
+K-LIB Forge has no telemetry. See [Privacy and Data](docs/privacy.md).
+
+## Documentation
+
+- [Installation and removal](docs/installation.md)
+- [Getting started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [SDK and MCP](docs/sdk-and-mcp.md)
+- [Known limitations](docs/known-limitations.md)
+- [Release process](docs/release.md)
+- [Security policy](SECURITY.md)
 
 ## License
 

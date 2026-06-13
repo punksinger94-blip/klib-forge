@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS model_runs (
     model TEXT,
     input TEXT,
     output TEXT,
+    prompt TEXT,
     retrieved_context_json TEXT,
     latency_ms INTEGER,
     created_at TEXT
@@ -74,6 +75,12 @@ class Database:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as connection:
             connection.executescript(SCHEMA)
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(model_runs)").fetchall()
+            }
+            if "prompt" not in columns:
+                connection.execute("ALTER TABLE model_runs ADD COLUMN prompt TEXT")
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
@@ -102,4 +109,3 @@ class Database:
     @staticmethod
     def json(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False)
-

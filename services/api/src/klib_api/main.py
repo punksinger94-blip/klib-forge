@@ -11,9 +11,10 @@ import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from klib_core import ForgeEngine, LibraryManager
+from klib_core import ForgeEngine, LibraryManager, __version__
 from klib_core.errors import KlibError, LibraryNotFoundError
 from klib_core.manifest import save_manifest
+from klib_core.profiles import ModelProfileManager
 from klib_core.providers import get_provider
 from pydantic import BaseModel, Field
 
@@ -75,9 +76,76 @@ class ModelTestRequest(BaseModel):
     base_url: str | None = None
 
 
+class LibraryUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    domain: str | None = None
+    languages: list[str] | None = None
+    default_mode: str | None = None
+    supported_tasks: list[str] | None = None
+    retrieval_policy: dict[str, Any] | None = None
+    model_policy: dict[str, Any] | None = None
+
+
+class SourceUpdate(BaseModel):
+    title: str | None = None
+    trust_level: str | None = None
+
+
+class RuleUpdate(BaseModel):
+    body: str
+    title: str = ""
+    priority: int = Field(default=5, ge=1, le=10)
+
+
+class ExampleUpdate(BaseModel):
+    input: str | None = None
+    output: str | None = None
+    task: str | None = None
+    mode: str | None = None
+
+
+class CorrectionReview(BaseModel):
+    status: str
+
+
+class SuggestionApply(BaseModel):
+    kind: str
+    payload: dict[str, Any]
+
+
+class EvalUpsert(BaseModel):
+    id: str | None = None
+    name: str = ""
+    task: str = ""
+    input: str
+    checks: dict[str, Any] = Field(default_factory=dict)
+
+
+class ArenaModel(BaseModel):
+    name: str = ""
+    provider: str
+    model: str
+    base_url: str | None = None
+
+
+class ArenaRequest(BaseModel):
+    models: list[ArenaModel]
+
+
+class ProfileCreate(BaseModel):
+    id: str | None = None
+    name: str
+    provider: str
+    model: str
+    base_url: str | None = None
+    api_key_env: str | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
 app = FastAPI(
     title="K-LIB Forge API",
-    version="0.1.1",
+    version=__version__,
     description="Local-first API for building and running portable .klib packages.",
 )
 app.add_middleware(
@@ -102,6 +170,10 @@ def manager() -> LibraryManager:
 
 def engine() -> ForgeEngine:
     return ForgeEngine(manager())
+
+
+def profiles() -> ModelProfileManager:
+    return ModelProfileManager(manager().home)
 
 
 def library_detail(library_id: str) -> dict[str, Any]:
@@ -130,7 +202,7 @@ def _error_response(status_code: int, detail: str) -> Any:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.1.1"}
+    return {"status": "ok", "version": __version__}
 
 
 @app.post("/libraries", status_code=201)
@@ -153,6 +225,14 @@ def list_libraries() -> list[dict[str, Any]]:
 @app.get("/libraries/{library_id}")
 def get_library(library_id: str) -> dict[str, Any]:
     return library_detail(library_id)
+
+
+@app.patch("/libraries/{library_id}")
+def update_library(library_id: str, request: LibraryUpdate) -> dict[str, Any]:
+    return manager().update_manifest(
+        library_id,
+        request.model_dump(exclude_none=True),
+    ).model_dump(mode="json")
 
 
 @app.post("/examples/arabic-technical-translation/install", status_code=201)
@@ -275,6 +355,25 @@ def list_sources(library_id: str) -> list[dict[str, Any]]:
     return manager().sources(library_id)
 
 
+@app.patch("/libraries/{library_id}/sources/{source_id}")
+def update_source(
+    library_id: str,
+    source_id: str,
+    request: SourceUpdate,
+) -> dict[str, Any]:
+    return manager().update_source(
+        library_id,
+        source_id,
+        title=request.title,
+        trust_level=request.trust_level,
+    )
+
+
+@app.delete("/libraries/{library_id}/sources/{source_id}", status_code=204)
+def delete_source(library_id: str, source_id: str) -> None:
+    manager().delete_source(library_id, source_id)
+
+
 @app.post("/libraries/{library_id}/glossary", status_code=201)
 def create_glossary(library_id: str, request: GlossaryCreate) -> dict[str, Any]:
     return manager().add_glossary(
@@ -288,6 +387,11 @@ def create_glossary(library_id: str, request: GlossaryCreate) -> dict[str, Any]:
 @app.get("/libraries/{library_id}/glossary")
 def list_glossary(library_id: str) -> list[dict[str, Any]]:
     return manager().glossary(library_id)
+
+
+@app.delete("/libraries/{library_id}/glossary/{entry_id}", status_code=204)
+def delete_glossary(library_id: str, entry_id: str) -> None:
+    manager().delete_glossary(library_id, entry_id)
 
 
 @app.post("/libraries/{library_id}/rules", status_code=201)
@@ -305,6 +409,22 @@ def list_rules(library_id: str) -> list[dict[str, Any]]:
     return manager().rules(library_id)
 
 
+@app.put("/libraries/{library_id}/rules/{rule_id}")
+def update_rule(library_id: str, rule_id: str, request: RuleUpdate) -> dict[str, Any]:
+    return manager().update_rule(
+        library_id,
+        rule_id,
+        title=request.title,
+        body=request.body,
+        priority=request.priority,
+    )
+
+
+@app.delete("/libraries/{library_id}/rules/{rule_id}", status_code=204)
+def delete_rule(library_id: str, rule_id: str) -> None:
+    manager().delete_rule(library_id, rule_id)
+
+
 @app.post("/libraries/{library_id}/examples", status_code=201)
 def create_example(library_id: str, request: ExampleCreate) -> dict[str, Any]:
     return manager().add_example(
@@ -319,6 +439,42 @@ def create_example(library_id: str, request: ExampleCreate) -> dict[str, Any]:
 @app.get("/libraries/{library_id}/examples")
 def list_examples(library_id: str) -> list[dict[str, Any]]:
     return manager().examples(library_id)
+
+
+@app.patch("/libraries/{library_id}/examples/{example_id}")
+def update_example(
+    library_id: str,
+    example_id: str,
+    request: ExampleUpdate,
+) -> dict[str, Any]:
+    return manager().update_example(
+        library_id,
+        example_id,
+        request.model_dump(exclude_none=True),
+    )
+
+
+@app.delete("/libraries/{library_id}/examples/{example_id}", status_code=204)
+def delete_example(library_id: str, example_id: str) -> None:
+    manager().delete_example(library_id, example_id)
+
+
+@app.get("/libraries/{library_id}/evals")
+def list_evals(library_id: str) -> list[dict[str, Any]]:
+    return manager().evals(library_id)
+
+
+@app.post("/libraries/{library_id}/evals", status_code=201)
+def save_eval(library_id: str, request: EvalUpsert) -> dict[str, Any]:
+    return manager().save_eval(
+        library_id,
+        request.model_dump(exclude_none=True),
+    )
+
+
+@app.delete("/libraries/{library_id}/evals/{eval_id}", status_code=204)
+def delete_eval(library_id: str, eval_id: str) -> None:
+    manager().delete_eval(library_id, eval_id)
 
 
 @app.post("/libraries/{library_id}/compile")
@@ -361,6 +517,30 @@ def correct_output(library_id: str, request: CorrectionCreate) -> dict[str, Any]
     )
 
 
+@app.get("/libraries/{library_id}/corrections")
+def list_corrections(library_id: str) -> list[dict[str, Any]]:
+    return manager().corrections(library_id)
+
+
+@app.post("/libraries/{library_id}/corrections/{correction_id}/review")
+def review_correction(
+    library_id: str,
+    correction_id: str,
+    request: CorrectionReview,
+) -> dict[str, Any]:
+    return manager().review_correction(library_id, correction_id, request.status)
+
+
+@app.get("/libraries/{library_id}/suggestions")
+def list_suggestions(library_id: str) -> list[dict[str, Any]]:
+    return engine().suggestions(library_id)
+
+
+@app.post("/libraries/{library_id}/suggestions/apply", status_code=201)
+def apply_suggestion(library_id: str, request: SuggestionApply) -> dict[str, Any]:
+    return engine().apply_suggestion(library_id, request.kind, request.payload)
+
+
 @app.post("/libraries/{library_id}/eval")
 def evaluate_library(library_id: str, request: EvalRequest) -> list[dict[str, Any]]:
     return [
@@ -372,6 +552,29 @@ def evaluate_library(library_id: str, request: EvalRequest) -> list[dict[str, An
             base_url=request.base_url,
         )
     ]
+
+
+@app.post("/libraries/{library_id}/arena")
+def evaluate_arena(library_id: str, request: ArenaRequest) -> dict[str, Any]:
+    return engine().compare_models(
+        library_id,
+        [item.model_dump(mode="json") for item in request.models],
+    )
+
+
+@app.get("/libraries/{library_id}/runs")
+def list_runs(library_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    return manager().model_runs(library_id, min(max(limit, 1), 500))
+
+
+@app.get("/libraries/{library_id}/eval-runs")
+def list_eval_runs(library_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    return manager().eval_runs(library_id, min(max(limit, 1), 500))
+
+
+@app.get("/libraries/{library_id}/trust")
+def library_trust(library_id: str) -> list[dict[str, Any]]:
+    return manager().trust_reports(library_id)
 
 
 @app.post("/libraries/{library_id}/diff")
@@ -418,6 +621,29 @@ def test_model(request: ModelTestRequest) -> dict[str, Any]:
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/model-profiles")
+def list_model_profiles() -> list[dict[str, Any]]:
+    return [item.model_dump(mode="json") for item in profiles().list()]
+
+
+@app.post("/model-profiles", status_code=201)
+def save_model_profile(request: ProfileCreate) -> dict[str, Any]:
+    return profiles().create(
+        name=request.name,
+        provider=request.provider,
+        model=request.model,
+        base_url=request.base_url,
+        api_key_env=request.api_key_env,
+        options=request.options,
+        profile_id=request.id,
+    ).model_dump(mode="json")
+
+
+@app.delete("/model-profiles/{profile_id}", status_code=204)
+def delete_model_profile(profile_id: str) -> None:
+    profiles().delete(profile_id)
 
 
 def run() -> None:

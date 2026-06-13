@@ -10,9 +10,10 @@ from typing import Any
 
 from .database import Database
 from .errors import KlibError, LibraryNotFoundError, ManifestValidationError
-from .files import iter_source_files
+from .files import extract_document, iter_source_files
 from .manifest import load_manifest, save_manifest
 from .models import Manifest, utc_now
+from .trust import scan_prompt_injection, trust_risk_score
 
 PACKAGE_DIRECTORIES = (
     "sources",
@@ -122,8 +123,8 @@ class LibraryManager:
         return load_manifest(path), path
 
     def delete(self, identifier: str, *, remove_files: bool = False) -> None:
-        _, path = self.get(identifier)
-        self.db.execute("DELETE FROM libraries WHERE id = ?", (identifier,))
+        manifest, path = self.get(identifier)
+        self.db.execute("DELETE FROM libraries WHERE id = ?", (manifest.id,))
         if remove_files:
             if self.libraries_dir not in path.parents:
                 raise KlibError("Refusing to delete a library outside the managed K-LIB home")
@@ -208,14 +209,25 @@ class LibraryManager:
             source_id = uuid.uuid4().hex
             destination = library_path / "sources" / f"{source_id}-{source.name}"
             shutil.copy2(source, destination)
+            document = extract_document(source)
+            findings = scan_prompt_injection(document.text)
+            risk_score = trust_risk_score(findings)
+            trust_level = "flagged" if risk_score >= 40 else "user_added"
             item = {
                 "id": source_id,
                 "library_id": manifest.id,
                 "title": source.name,
                 "type": source.suffix.lower().lstrip("."),
                 "path": str(destination.relative_to(library_path)),
-                "trust_level": "user_added",
-                "metadata": {"original_path": str(source.resolve())},
+                "trust_level": trust_level,
+                "metadata": {
+                    "original_path": str(source.resolve()),
+                    **document.metadata,
+                    "risk_score": risk_score,
+                    "trust_findings": [
+                        finding.model_dump(mode="json") for finding in findings
+                    ],
+                },
                 "created_at": utc_now(),
             }
             self.db.execute(
@@ -251,6 +263,64 @@ class LibraryManager:
         _, path = self.get(identifier)
         return self._read_json(path / "glossary.json", [])
 
+    def delete_source(self, identifier: str | Path, source_id: str) -> None:
+        manifest, library_path = self.get(identifier)
+        source = self.db.fetch_one(
+            "SELECT * FROM sources WHERE id = ? AND library_id = ?",
+            (source_id, manifest.id),
+        )
+        if not source:
+            raise KlibError(f"Source not found: {source_id}")
+        (library_path / source["path"]).unlink(missing_ok=True)
+        self.db.execute("DELETE FROM sources WHERE id = ?", (source_id,))
+        self._touch(identifier)
+
+    def update_source(
+        self,
+        identifier: str | Path,
+        source_id: str,
+        *,
+        title: str | None = None,
+        trust_level: str | None = None,
+    ) -> dict[str, Any]:
+        manifest, _ = self.get(identifier)
+        source = self.db.fetch_one(
+            "SELECT * FROM sources WHERE id = ? AND library_id = ?",
+            (source_id, manifest.id),
+        )
+        if not source:
+            raise KlibError(f"Source not found: {source_id}")
+        resolved_title = title if title is not None else source["title"]
+        resolved_trust = trust_level if trust_level is not None else source["trust_level"]
+        self.db.execute(
+            "UPDATE sources SET title = ?, trust_level = ? WHERE id = ?",
+            (resolved_title, resolved_trust, source_id),
+        )
+        self._touch(identifier)
+        return self.db.fetch_one("SELECT * FROM sources WHERE id = ?", (source_id,)) or {}
+
+    def update_manifest(self, identifier: str | Path, changes: dict[str, Any]) -> Manifest:
+        manifest, path = self.get(identifier)
+        protected = {"id", "created_at", "klib_format_version"}
+        data = manifest.model_dump(mode="json")
+        for key, value in changes.items():
+            if key not in protected and value is not None:
+                data[key] = value
+        updated = Manifest.model_validate(data)
+        updated.updated_at = utc_now()
+        save_manifest(path, updated)
+        self.register(path)
+        return updated
+
+    def delete_glossary(self, identifier: str | Path, entry_id: str) -> None:
+        _, path = self.get(identifier)
+        entries = self.glossary(identifier)
+        kept = [item for item in entries if item["id"] != entry_id]
+        if len(entries) == len(kept):
+            raise KlibError(f"Glossary entry not found: {entry_id}")
+        self._write_json(path / "glossary.json", kept)
+        self._touch(identifier)
+
     def add_rule(
         self,
         identifier: str | Path,
@@ -282,6 +352,30 @@ class LibraryManager:
         (path / "rules.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
         self._touch(identifier)
         return rule
+
+    def update_rule(
+        self,
+        identifier: str | Path,
+        rule_id: str,
+        *,
+        title: str,
+        body: str,
+        priority: int,
+    ) -> dict[str, Any]:
+        rules = self.rules(identifier)
+        rule = next((item for item in rules if item["id"] == rule_id), None)
+        if not rule:
+            raise KlibError(f"Rule not found: {rule_id}")
+        rule.update(title=title or body[:60], body=body, priority=priority)
+        self._write_rules(identifier, rules)
+        return rule
+
+    def delete_rule(self, identifier: str | Path, rule_id: str) -> None:
+        rules = self.rules(identifier)
+        kept = [item for item in rules if item["id"] != rule_id]
+        if len(rules) == len(kept):
+            raise KlibError(f"Rule not found: {rule_id}")
+        self._write_rules(identifier, kept)
 
     def rules(self, identifier: str | Path) -> list[dict[str, Any]]:
         _, path = self.get(identifier)
@@ -326,6 +420,31 @@ class LibraryManager:
         self._touch(identifier)
         return item
 
+    def update_example(
+        self,
+        identifier: str | Path,
+        example_id: str,
+        changes: dict[str, Any],
+    ) -> dict[str, Any]:
+        _, path = self.get(identifier)
+        items = self.examples(identifier)
+        item = next((value for value in items if value["id"] == example_id), None)
+        if not item:
+            raise KlibError(f"Example not found: {example_id}")
+        item.update({key: value for key, value in changes.items() if value is not None})
+        self._write_jsonl(path / "examples.jsonl", items)
+        self._touch(identifier)
+        return item
+
+    def delete_example(self, identifier: str | Path, example_id: str) -> None:
+        _, path = self.get(identifier)
+        items = self.examples(identifier)
+        kept = [item for item in items if item["id"] != example_id]
+        if len(items) == len(kept):
+            raise KlibError(f"Example not found: {example_id}")
+        self._write_jsonl(path / "examples.jsonl", kept)
+        self._touch(identifier)
+
     def examples(self, identifier: str | Path) -> list[dict[str, Any]]:
         _, path = self.get(identifier)
         return self._read_jsonl(path / "examples.jsonl")
@@ -340,15 +459,119 @@ class LibraryManager:
                 continue
         return items
 
+    def save_eval(self, identifier: str | Path, eval_data: dict[str, Any]) -> dict[str, Any]:
+        _, path = self.get(identifier)
+        eval_id = str(eval_data.get("id") or f"eval-{uuid.uuid4().hex[:12]}")
+        payload = {**eval_data, "id": eval_id}
+        (path / "evals" / f"{eval_id}.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self._touch(identifier)
+        return payload
+
+    def delete_eval(self, identifier: str | Path, eval_id: str) -> None:
+        _, path = self.get(identifier)
+        target = path / "evals" / f"{eval_id}.json"
+        if not target.exists():
+            raise KlibError(f"Eval not found: {eval_id}")
+        target.unlink()
+        self._touch(identifier)
+
     def corrections(self, identifier: str | Path) -> list[dict[str, Any]]:
         _, path = self.get(identifier)
         return self._read_jsonl(path / "corrections.jsonl")
+
+    def review_correction(
+        self,
+        identifier: str | Path,
+        correction_id: str,
+        status: str,
+    ) -> dict[str, Any]:
+        if status not in {"pending", "approved", "rejected"}:
+            raise KlibError("Correction status must be pending, approved, or rejected")
+        _, path = self.get(identifier)
+        corrections = self.corrections(identifier)
+        correction = next(
+            (item for item in corrections if item["id"] == correction_id),
+            None,
+        )
+        if not correction:
+            raise KlibError(f"Correction not found: {correction_id}")
+        correction["status"] = status
+        correction["reviewed_at"] = utc_now()
+        self._write_jsonl(path / "corrections.jsonl", corrections)
+        self._touch(identifier)
+        return correction
+
+    def model_runs(self, identifier: str | Path, limit: int = 100) -> list[dict[str, Any]]:
+        manifest, _ = self.get(identifier)
+        rows = self.db.fetch_all(
+            """
+            SELECT id, provider, model, input, output, prompt, retrieved_context_json,
+                   latency_ms, created_at
+            FROM model_runs
+            WHERE library_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (manifest.id, limit),
+        )
+        for row in rows:
+            row["retrieved_context"] = json.loads(row.pop("retrieved_context_json") or "[]")
+        return rows
+
+    def eval_runs(self, identifier: str | Path, limit: int = 100) -> list[dict[str, Any]]:
+        manifest, _ = self.get(identifier)
+        rows = self.db.fetch_all(
+            """
+            SELECT id, model_provider, model_name, score, result_json, created_at
+            FROM eval_runs
+            WHERE library_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (manifest.id, limit),
+        )
+        for row in rows:
+            row["results"] = json.loads(row.pop("result_json") or "[]")
+        return rows
+
+    def trust_reports(self, identifier: str | Path) -> list[dict[str, Any]]:
+        reports = []
+        for source in self.sources(identifier):
+            metadata = json.loads(source.get("metadata_json") or "{}")
+            reports.append(
+                {
+                    "source_id": source["id"],
+                    "title": source["title"],
+                    "trust_level": source["trust_level"],
+                    "risk_score": metadata.get("risk_score", 0),
+                    "findings": metadata.get("trust_findings", []),
+                }
+            )
+        return reports
 
     def _touch(self, identifier: str | Path) -> None:
         manifest, path = self.get(identifier)
         manifest.updated_at = utc_now()
         save_manifest(path, manifest)
         self.register(path)
+
+    def _write_rules(self, identifier: str | Path, rules: list[dict[str, Any]]) -> None:
+        _, path = self.get(identifier)
+        lines = ["# Rules", ""]
+        for item in sorted(rules, key=lambda value: value.get("priority", 5)):
+            lines.extend(
+                [
+                    f"## {item['title']}",
+                    f"<!-- id:{item['id']} priority:{item.get('priority', 5)} -->",
+                    item["body"],
+                    "",
+                ]
+            )
+        (path / "rules.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        self._touch(identifier)
 
     @staticmethod
     def _write_json(path: Path, value: Any) -> None:
@@ -364,6 +587,13 @@ class LibraryManager:
     def _append_jsonl(path: Path, value: dict[str, Any]) -> None:
         with path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(value, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _write_jsonl(path: Path, values: list[dict[str, Any]]) -> None:
+        path.write_text(
+            "".join(json.dumps(value, ensure_ascii=False) + "\n" for value in values),
+            encoding="utf-8",
+        )
 
     @staticmethod
     def _read_jsonl(path: Path) -> list[dict[str, Any]]:

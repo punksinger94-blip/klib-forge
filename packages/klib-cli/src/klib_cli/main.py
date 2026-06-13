@@ -11,9 +11,12 @@ from klib_core import ForgeEngine, LibraryManager
 from klib_core.benchmarks import (
     BIOLOGY_BENCHMARK_ID,
     BIOLOGY_BENCHMARK_MODEL,
+    LITERATURE_BIOLOGY_BENCHMARK_ID,
     install_biology_benchmark,
+    install_literature_biology_benchmark,
 )
 from klib_core.errors import KlibError
+from klib_core.profiles import ModelProfileManager
 from klib_core.providers import get_provider
 
 app = typer.Typer(
@@ -24,9 +27,11 @@ app = typer.Typer(
 glossary_app = typer.Typer(help="Manage glossary terms.")
 rule_app = typer.Typer(help="Manage K-LIB rules.")
 example_app = typer.Typer(help="Manage prompt examples.")
+profile_app = typer.Typer(help="Manage reusable model profiles.")
 app.add_typer(glossary_app, name="glossary")
 app.add_typer(rule_app, name="rule")
 app.add_typer(example_app, name="example")
+app.add_typer(profile_app, name="profile")
 
 
 for stream in (sys.stdout, sys.stderr):
@@ -40,6 +45,10 @@ def manager() -> LibraryManager:
 
 def engine() -> ForgeEngine:
     return ForgeEngine(manager())
+
+
+def profiles() -> ModelProfileManager:
+    return ModelProfileManager(manager().home)
 
 
 def emit(value: Any) -> None:
@@ -150,6 +159,34 @@ def search_library(
     )
 
 
+@app.command("suggest")
+def suggest_knowledge_assets(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Suggest glossary terms, rules, examples, and evals from package sources."""
+
+    run_command(lambda: emit(engine().suggestions(resolve_library(library))))
+
+
+@app.command("trust")
+def trust_report(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Show source trust levels and prompt-injection findings."""
+
+    run_command(lambda: emit(manager().trust_reports(resolve_library(library))))
+
+
+@app.command("runs")
+def run_history(
+    library: str | None = typer.Option(None, "--library", "-l"),
+    limit: int = typer.Option(50, min=1, max=500),
+) -> None:
+    """Show local model run history with assembled prompts."""
+
+    run_command(lambda: emit(manager().model_runs(resolve_library(library), limit)))
+
+
 @app.command("ask")
 def ask_library(
     prompt: str,
@@ -224,6 +261,32 @@ def run_evals(
     )
 
 
+@app.command("arena")
+def run_arena(
+    candidates: list[str] = typer.Option(
+        ...,
+        "--candidate",
+        help="Repeat provider:model, for example --candidate mock:offline-demo.",
+    ),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Compare two or more model configurations on package evals."""
+
+    configurations = []
+    for candidate in candidates:
+        if ":" not in candidate:
+            raise typer.BadParameter("Candidates must use provider:model")
+        provider, model = candidate.split(":", 1)
+        configurations.append(
+            {"name": candidate, "provider": provider, "model": model}
+        )
+    run_command(
+        lambda: emit(
+            engine().compare_models(resolve_library(library), configurations)
+        )
+    )
+
+
 @app.command("nvidia-ab")
 def run_nvidia_ab(
     model: str = typer.Option(
@@ -242,6 +305,53 @@ def run_nvidia_ab(
     ),
 ) -> None:
     """Compare a raw NVIDIA model with the same model plus a biology K-LIB."""
+    _run_nvidia_ab(
+        benchmark_id=BIOLOGY_BENCHMARK_ID,
+        installer=install_biology_benchmark,
+        model=model,
+        repeats=repeats,
+        crossover=crossover,
+        output=output,
+    )
+
+
+@app.command("nvidia-literature-ab")
+def run_nvidia_literature_ab(
+    model: str = typer.Option(
+        BIOLOGY_BENCHMARK_MODEL,
+        help="NVIDIA model id used for both conditions.",
+    ),
+    repeats: int = typer.Option(1, min=1, max=10),
+    crossover: bool = typer.Option(
+        False,
+        "--crossover/--no-crossover",
+        help="Repeat with the two API key slots swapped.",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        help="Optional path for a combined JSON report.",
+    ),
+) -> None:
+    """Compare a raw NVIDIA model with a primary-literature biology K-LIB."""
+    _run_nvidia_ab(
+        benchmark_id=LITERATURE_BIOLOGY_BENCHMARK_ID,
+        installer=install_literature_biology_benchmark,
+        model=model,
+        repeats=repeats,
+        crossover=crossover,
+        output=output,
+    )
+
+
+def _run_nvidia_ab(
+    *,
+    benchmark_id: str,
+    installer: Any,
+    model: str,
+    repeats: int,
+    crossover: bool,
+    output: Path | None,
+) -> None:
 
     def action() -> None:
         baseline_key = os.getenv("NVIDIA_BASELINE_API_KEY")
@@ -253,11 +363,11 @@ def run_nvidia_ab(
             )
 
         forge = manager()
-        library_path = install_biology_benchmark(forge, model=model)
+        library_path = installer(forge, model=model)
         comparison_engine = ForgeEngine(forge)
         reports = [
             comparison_engine.compare_evals(
-                BIOLOGY_BENCHMARK_ID,
+                benchmark_id,
                 provider="nvidia",
                 model=model,
                 baseline_api_key=baseline_key,
@@ -271,7 +381,7 @@ def run_nvidia_ab(
         if crossover:
             reports.append(
                 comparison_engine.compare_evals(
-                    BIOLOGY_BENCHMARK_ID,
+                    benchmark_id,
                     provider="nvidia",
                     model=model,
                     baseline_api_key=klib_key,
@@ -442,6 +552,39 @@ def example_list(
     library: str | None = typer.Option(None, "--library", "-l"),
 ) -> None:
     run_command(lambda: emit(manager().examples(resolve_library(library))))
+
+
+@profile_app.command("add")
+def profile_add(
+    name: str,
+    provider: str = typer.Option(...),
+    model: str = typer.Option(...),
+    base_url: str | None = typer.Option(None),
+    api_key_env: str | None = typer.Option(None),
+) -> None:
+    """Save a model profile without storing the credential value."""
+
+    run_command(
+        lambda: emit(
+            profiles().create(
+                name=name,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                api_key_env=api_key_env,
+            )
+        )
+    )
+
+
+@profile_app.command("list")
+def profile_list() -> None:
+    emit([item.model_dump(mode="json") for item in profiles().list()])
+
+
+@profile_app.command("delete")
+def profile_delete(profile_id: str) -> None:
+    run_command(lambda: profiles().delete(profile_id))
 
 
 if __name__ == "__main__":

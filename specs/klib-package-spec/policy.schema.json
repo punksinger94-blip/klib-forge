@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://klibforge.dev/spec/0.1/policy.schema.json",
+  "$id": "urn:klib-forge:spec:0.1:policy",
   "title": "K-LIB Runtime Policy",
   "type": "object",
   "properties": {

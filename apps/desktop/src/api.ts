@@ -18,7 +18,14 @@ export type LibraryDetail = {
     domain: string;
     version: string;
     default_mode: string;
-    retrieval_policy: { top_k: number; require_citations: boolean };
+    retrieval_policy: {
+      top_k: number;
+      require_citations: boolean;
+      use_hybrid_search: boolean;
+      vector_adapter: "local" | "chroma" | "qdrant";
+      qdrant_url?: string;
+      qdrant_collection?: string;
+    };
     model_policy: {
       default_provider: string;
       default_model: string;
@@ -38,6 +45,7 @@ export type Source = {
   type: string;
   trust_level: string;
   path: string;
+  metadata_json?: string;
 };
 
 export type SearchResult = {
@@ -64,6 +72,37 @@ export type RuntimeInfo = {
   managed: boolean;
   backendPid: number | null;
   startupError: string | null;
+};
+
+export type Suggestion = {
+  id: string;
+  kind: "glossary" | "rule" | "example" | "eval";
+  title: string;
+  payload: Record<string, unknown>;
+  reason: string;
+  confidence: number;
+};
+
+export type ModelProfile = {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  base_url: string | null;
+  api_key_env: string | null;
+  options: Record<string, unknown>;
+};
+
+export type ModelRun = {
+  id: string;
+  provider: string;
+  model: string;
+  input: string;
+  output: string;
+  prompt: string;
+  retrieved_context: SearchResult[];
+  latency_ms: number;
+  created_at: string;
 };
 
 export function getApiBase(): string {
@@ -102,6 +141,13 @@ export const api = {
   health: () => request<{ status: string; version: string }>("/health"),
   libraries: () => request<Library[]>("/libraries"),
   library: (id: string) => request<LibraryDetail>(`/libraries/${id}`),
+  updateLibrary: (id: string, data: Record<string, unknown>) =>
+    request<LibraryDetail["manifest"]>(`/libraries/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteLibrary: (id: string, removeFiles = true) =>
+    request<void>(`/libraries/${id}?remove_files=${removeFiles}`, { method: "DELETE" }),
   createLibrary: (data: { name: string; id?: string; domain: string; description: string }) =>
     request<{ manifest: LibraryDetail["manifest"]; path: string }>("/libraries", {
       method: "POST",
@@ -118,6 +164,13 @@ export const api = {
     data.append("file", file);
     return request<Source[]>(`/libraries/${id}/sources`, { method: "POST", body: data });
   },
+  updateSource: (id: string, sourceId: string, data: { title?: string; trust_level?: string }) =>
+    request<Source>(`/libraries/${id}/sources/${sourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteSource: (id: string, sourceId: string) =>
+    request<void>(`/libraries/${id}/sources/${sourceId}`, { method: "DELETE" }),
   compile: (id: string) =>
     request<{ sources: number; chunks: number; keywords: string[]; snapshot_id: string }>(
       `/libraries/${id}/compile`,
@@ -129,12 +182,44 @@ export const api = {
     ),
   addGlossary: (id: string, data: { source_term: string; target_term: string; notes: string }) =>
     request(`/libraries/${id}/glossary`, { method: "POST", body: JSON.stringify(data) }),
+  deleteGlossary: (id: string, entryId: string) =>
+    request<void>(`/libraries/${id}/glossary/${entryId}`, { method: "DELETE" }),
   rules: (id: string) =>
     request<Array<{ id: string; title: string; body: string; priority: number }>>(
       `/libraries/${id}/rules`,
     ),
   addRule: (id: string, data: { title: string; body: string; priority: number }) =>
     request(`/libraries/${id}/rules`, { method: "POST", body: JSON.stringify(data) }),
+  updateRule: (id: string, ruleId: string, data: { title: string; body: string; priority: number }) =>
+    request(`/libraries/${id}/rules/${ruleId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteRule: (id: string, ruleId: string) =>
+    request<void>(`/libraries/${id}/rules/${ruleId}`, { method: "DELETE" }),
+  examples: (id: string) =>
+    request<Array<{ id: string; input: string; output: string; task: string; mode: string }>>(
+      `/libraries/${id}/examples`,
+    ),
+  addExample: (
+    id: string,
+    data: { input: string; output: string; task: string; mode: string },
+  ) => request(`/libraries/${id}/examples`, { method: "POST", body: JSON.stringify(data) }),
+  updateExample: (id: string, exampleId: string, data: Record<string, unknown>) =>
+    request(`/libraries/${id}/examples/${exampleId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteExample: (id: string, exampleId: string) =>
+    request<void>(`/libraries/${id}/examples/${exampleId}`, { method: "DELETE" }),
+  evals: (id: string) =>
+    request<Array<{ id: string; name: string; task: string; input: string; checks: Record<string, unknown> }>>(
+      `/libraries/${id}/evals`,
+    ),
+  saveEval: (id: string, data: Record<string, unknown>) =>
+    request(`/libraries/${id}/evals`, { method: "POST", body: JSON.stringify(data) }),
+  deleteEval: (id: string, evalId: string) =>
+    request<void>(`/libraries/${id}/evals/${evalId}`, { method: "DELETE" }),
   ask: (
     id: string,
     data: { input: string; provider: string; model: string; mode?: string; base_url?: string },
@@ -143,10 +228,48 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  correct: (
+    id: string,
+    data: {
+      input: string;
+      bad_output: string;
+      corrected_output: string;
+      lesson: string;
+      create_eval: boolean;
+    },
+  ) => request(`/libraries/${id}/correct`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
   evaluate: (id: string, data: { provider: string; model: string; base_url?: string }) =>
     request<Array<{ eval_id: string; score: number; output: string }>>(
       `/libraries/${id}/eval`,
       { method: "POST", body: JSON.stringify(data) },
+    ),
+  arena: (
+    id: string,
+    models: Array<{ name: string; provider: string; model: string; base_url?: string }>,
+  ) => request<{ models: Array<{ name: string; average: number; results: unknown[] }> }>(
+    `/libraries/${id}/arena`,
+    { method: "POST", body: JSON.stringify({ models }) },
+  ),
+  suggestions: (id: string) => request<Suggestion[]>(`/libraries/${id}/suggestions`),
+  applySuggestion: (id: string, suggestion: Suggestion) =>
+    request(`/libraries/${id}/suggestions/apply`, {
+      method: "POST",
+      body: JSON.stringify({ kind: suggestion.kind, payload: suggestion.payload }),
+    }),
+  corrections: (id: string) =>
+    request<Array<Record<string, string>>>(`/libraries/${id}/corrections`),
+  reviewCorrection: (id: string, correctionId: string, status: string) =>
+    request(`/libraries/${id}/corrections/${correctionId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+  runs: (id: string) => request<ModelRun[]>(`/libraries/${id}/runs`),
+  trust: (id: string) =>
+    request<Array<{ source_id: string; title: string; trust_level: string; risk_score: number; findings: Array<{ severity: string; message: string; excerpt: string }> }>>(
+      `/libraries/${id}/trust`,
     ),
   diff: (id: string) =>
     request<Record<string, string | string[] | null>>(`/libraries/${id}/diff`, {
@@ -174,4 +297,20 @@ export const api = {
     URL.revokeObjectURL(url);
     return filename;
   },
+  importLibrary: (file: File) => {
+    const data = new FormData();
+    data.append("file", file);
+    return request<LibraryDetail["manifest"]>("/libraries/import", {
+      method: "POST",
+      body: data,
+    });
+  },
+  profiles: () => request<ModelProfile[]>("/model-profiles"),
+  saveProfile: (profile: Omit<ModelProfile, "id"> & { id?: string }) =>
+    request<ModelProfile>("/model-profiles", {
+      method: "POST",
+      body: JSON.stringify(profile),
+    }),
+  deleteProfile: (id: string) =>
+    request<void>(`/model-profiles/${id}`, { method: "DELETE" }),
 };

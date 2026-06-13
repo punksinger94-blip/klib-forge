@@ -3,6 +3,13 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $CargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
 
+function Assert-NativeSuccess {
+    param([Parameter(Mandatory)][string]$Operation)
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Operation failed with exit code $LASTEXITCODE."
+    }
+}
+
 if (-not (Test-Path $Python)) {
     throw "Run .\scripts\bootstrap.ps1 first."
 }
@@ -17,6 +24,7 @@ if (-not $Rustc) {
 }
 
 $TargetTriple = (& rustc --print host-tuple).Trim()
+Assert-NativeSuccess "Rust target detection"
 if (-not $TargetTriple) {
     throw "Could not determine the Rust target triple."
 }
@@ -45,6 +53,7 @@ New-Item -ItemType Directory -Force -Path $DistRoot, $WorkRoot, $SpecRoot, $Bina
     --collect-submodules uvicorn `
     --add-data "${SchemaSource};klib_core/schemas" `
     $EntryPoint
+Assert-NativeSuccess "API sidecar packaging"
 
 $SourceBinary = Join-Path $DistRoot "klib-api.exe"
 if (-not (Test-Path $SourceBinary)) {

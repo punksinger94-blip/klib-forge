@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://klibforge.dev/spec/0.1/eval.schema.json",
+  "$id": "urn:klib-forge:spec:0.1:eval",
   "title": "K-LIB Evaluation",
   "type": "object",
   "required": ["id", "input", "checks"],
@@ -13,6 +13,15 @@
       "type": "object",
       "properties": {
         "must_include": { "type": "array", "items": { "type": "string" } },
+        "must_include_any": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+            ]
+          }
+        },
         "must_not_include": { "type": "array", "items": { "type": "string" } },
         "json_valid": { "type": "boolean" },
         "citation_required": { "type": "boolean" }
@@ -22,4 +31,3 @@
   },
   "additionalProperties": true
 }
-

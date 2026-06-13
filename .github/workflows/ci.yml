@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install -r requirements/dev-lock.txt
+      - run: python -m pip install --no-deps -e .
+      - run: python -m ruff check .
+      - run: python -m pytest --cov=klib_core --cov=klib_api --cov-fail-under=80
+      - run: python -m build
+      - run: python -m pip install twine pip-audit
+      - run: python -m twine check dist/*
+      - run: python -m pip_audit -r requirements/runtime-lock.txt
+
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@1.91.1
+        with:
+          components: rustfmt, clippy
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: npm audit
+        working-directory: apps/desktop
+      - run: npm run build
+        working-directory: apps/desktop
+      - run: cargo fmt --check
+        working-directory: apps/desktop/src-tauri
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: apps/desktop/src-tauri
+      - run: cargo test
+        working-directory: apps/desktop/src-tauri
+      - uses: taiki-e/install-action@cargo-audit
+      - run: cargo audit --ignore RUSTSEC-2024-0429
+        working-directory: apps/desktop/src-tauri

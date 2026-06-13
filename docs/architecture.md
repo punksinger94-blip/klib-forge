@@ -35,9 +35,10 @@ separate Python installation or `klib-api` terminal.
 2. Extract and clean text.
 3. Split text into overlapping chunks.
 4. Persist portable chunk JSONL.
-5. Build a deterministic local TF-IDF index.
-6. Extract top keywords.
-7. Write build metadata and a Knowledge Diff snapshot.
+5. Build deterministic TF-IDF and local vector indexes.
+6. Optionally synchronize Chroma or Qdrant.
+7. Extract top keywords.
+8. Write build metadata and a Knowledge Diff snapshot.
 
 ## Prompt order
 

@@ -12,7 +12,7 @@ def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
 
     health = client.get("/health")
     assert health.status_code == 200
-    assert health.json()["version"] == "0.1.1"
+    assert health.json()["version"] == "1.0.0"
 
     created = client.post(
         "/libraries",
@@ -71,3 +71,78 @@ def test_builtin_example_install_is_ready_and_idempotent(
     repeated = client.post("/examples/arabic-technical-translation/install")
     assert repeated.status_code == 201
     assert repeated.json()["created"] is False
+
+
+def test_api_editor_suggestions_history_profiles_and_arena(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("KLIB_HOME", str(tmp_path / "roadmap-home"))
+    client = TestClient(app)
+    client.post("/libraries", json={"name": "Roadmap", "id": "roadmap"})
+    source = client.post(
+        "/libraries/roadmap/sources",
+        files={
+            "file": (
+                "facts.md",
+                b"Latency is response time. Latency must be measured.",
+                "text/markdown",
+            )
+        },
+    ).json()[0]
+    assert client.patch(
+        f"/libraries/roadmap/sources/{source['id']}",
+        json={"trust_level": "trusted"},
+    ).status_code == 200
+    assert client.post("/libraries/roadmap/compile").status_code == 200
+    assert client.get("/libraries/roadmap/suggestions").status_code == 200
+
+    glossary = client.post(
+        "/libraries/roadmap/glossary",
+        json={"source_term": "latency", "target_term": "response time"},
+    ).json()
+    assert client.delete(
+        f"/libraries/roadmap/glossary/{glossary['id']}"
+    ).status_code == 204
+
+    asked = client.post(
+        "/libraries/roadmap/ask",
+        json={"input": "What is latency?", "provider": "mock", "model": "offline"},
+    )
+    assert asked.status_code == 200
+    assert client.get("/libraries/roadmap/runs").json()[0]["prompt"]
+
+    profile = client.post(
+        "/model-profiles",
+        json={"name": "Offline", "provider": "mock", "model": "offline"},
+    )
+    assert profile.status_code == 201
+    assert client.get("/model-profiles").json()
+    assert client.delete(f"/model-profiles/{profile.json()['id']}").status_code == 204
+
+    correction = client.post(
+        "/libraries/roadmap/correct",
+        json={
+            "input": "What is latency?",
+            "bad_output": "Delay",
+            "corrected_output": "Response time",
+            "lesson": "Use the glossary",
+        },
+    ).json()
+    reviewed = client.post(
+        f"/libraries/roadmap/corrections/{correction['id']}/review",
+        json={"status": "approved"},
+    )
+    assert reviewed.json()["status"] == "approved"
+
+    arena = client.post(
+        "/libraries/roadmap/arena",
+        json={
+            "models": [
+                {"name": "one", "provider": "mock", "model": "offline"},
+                {"name": "two", "provider": "mock", "model": "offline"},
+            ]
+        },
+    )
+    assert arena.status_code == 200
+    assert len(arena.json()["models"]) == 2

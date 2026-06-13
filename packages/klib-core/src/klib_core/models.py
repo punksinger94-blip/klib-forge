@@ -14,6 +14,9 @@ class RetrievalPolicy(BaseModel):
     top_k: int = Field(default=8, ge=1, le=50)
     use_hybrid_search: bool = False
     require_citations: bool = True
+    vector_adapter: Literal["local", "chroma", "qdrant"] = "local"
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = ""
 
 
 class ModelPolicy(BaseModel):
@@ -73,6 +76,39 @@ class EvalResult(BaseModel):
     checks: list[EvalCheck]
 
 
+class Suggestion(BaseModel):
+    id: str
+    kind: Literal["glossary", "rule", "example", "eval"]
+    title: str
+    payload: dict[str, Any]
+    reason: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class TrustFinding(BaseModel):
+    severity: Literal["low", "medium", "high"]
+    category: str
+    message: str
+    excerpt: str = ""
+
+
+class TrustReport(BaseModel):
+    source_id: str
+    trust_level: str
+    risk_score: int = Field(ge=0, le=100)
+    findings: list[TrustFinding] = Field(default_factory=list)
+
+
+class ModelProfile(BaseModel):
+    id: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    name: str
+    provider: str
+    model: str
+    base_url: str | None = None
+    api_key_env: str | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
 class CompileResult(BaseModel):
     library_id: str
     sources: int
@@ -93,4 +129,3 @@ class DiffResult(BaseModel):
     removed_rules: list[str] = Field(default_factory=list)
     added_evals: list[str] = Field(default_factory=list)
     removed_evals: list[str] = Field(default_factory=list)
-

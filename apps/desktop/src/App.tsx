@@ -6,22 +6,41 @@ import {
   initializeRuntime,
   Library,
   LibraryDetail,
+  ModelProfile,
+  ModelRun,
   SearchResult,
   setApiBase,
   Source,
+  Suggestion,
 } from "./api";
 
-type View = "overview" | "sources" | "glossary" | "rules" | "chat" | "evals" | "diff" | "settings";
+type View =
+  | "overview"
+  | "sources"
+  | "glossary"
+  | "rules"
+  | "examples"
+  | "suggestions"
+  | "corrections"
+  | "chat"
+  | "evals"
+  | "history"
+  | "diff"
+  | "settings";
 
 const navigation: Array<{ id: View; label: string; eyebrow: string }> = [
   { id: "overview", label: "Dashboard", eyebrow: "01" },
   { id: "sources", label: "Sources", eyebrow: "02" },
   { id: "glossary", label: "Glossary", eyebrow: "03" },
   { id: "rules", label: "Rules", eyebrow: "04" },
-  { id: "chat", label: "Playground", eyebrow: "05" },
-  { id: "evals", label: "Eval Arena", eyebrow: "06" },
-  { id: "diff", label: "Knowledge Diff", eyebrow: "07" },
-  { id: "settings", label: "Settings", eyebrow: "08" },
+  { id: "examples", label: "Examples", eyebrow: "05" },
+  { id: "suggestions", label: "Suggestions", eyebrow: "06" },
+  { id: "corrections", label: "Corrections", eyebrow: "07" },
+  { id: "chat", label: "Playground", eyebrow: "08" },
+  { id: "evals", label: "Eval Arena", eyebrow: "09" },
+  { id: "history", label: "Run History", eyebrow: "10" },
+  { id: "diff", label: "Knowledge Diff", eyebrow: "11" },
+  { id: "settings", label: "Settings", eyebrow: "12" },
 ];
 
 function App() {
@@ -180,6 +199,15 @@ function App() {
           {view === "rules" && selectedId && (
             <Rules id={selectedId} run={run} setNotice={setNotice} />
           )}
+          {view === "examples" && selectedId && (
+            <Examples id={selectedId} run={run} setNotice={setNotice} />
+          )}
+          {view === "suggestions" && selectedId && (
+            <Suggestions id={selectedId} run={run} setNotice={setNotice} />
+          )}
+          {view === "corrections" && selectedId && (
+            <Corrections id={selectedId} run={run} setNotice={setNotice} />
+          )}
           {view === "chat" && selectedId && detail && (
             <Playground
               id={selectedId}
@@ -193,10 +221,20 @@ function App() {
           {view === "evals" && selectedId && detail && (
             <Evals id={selectedId} detail={detail} run={run} setNotice={setNotice} />
           )}
+          {view === "history" && selectedId && (
+            <History id={selectedId} />
+          )}
           {view === "diff" && selectedId && (
             <KnowledgeDiff id={selectedId} run={run} setNotice={setNotice} />
           )}
-          {view === "settings" && <Settings refresh={refresh} setNotice={setNotice} />}
+          {view === "settings" && (
+            <Settings
+              detail={detail}
+              refresh={refresh}
+              setNotice={setNotice}
+              run={run}
+            />
+          )}
           {!selectedId && view !== "overview" && (
             <EmptyState
               title="No K-LIB selected"
@@ -258,6 +296,26 @@ function Overview({
     void run(async () => {
       const filename = await api.exportLibrary(detail.manifest.id);
       setNotice(`Exported ${filename}.`);
+    });
+  }
+
+  function importPackage(file: File | undefined) {
+    if (!file) return;
+    void run(async () => {
+      const manifest = await api.importLibrary(file);
+      await refresh();
+      select(manifest.id);
+      setNotice(`Imported ${manifest.name}.`);
+    });
+  }
+
+  function deletePackage() {
+    if (!detail || !window.confirm(`Delete ${detail.manifest.name} and its local files?`)) return;
+    void run(async () => {
+      await api.deleteLibrary(detail.manifest.id);
+      select("");
+      await refresh();
+      setNotice("Package deleted.");
     });
   }
 
@@ -333,6 +391,17 @@ function Overview({
               <button className="button secondary" onClick={exportPackage}>
                 Export .klib
               </button>
+              <label className="button secondary file-button">
+                Import .klib
+                <input
+                  type="file"
+                  accept=".klib"
+                  onChange={(event) => importPackage(event.target.files?.[0])}
+                />
+              </label>
+              <button className="button danger" onClick={deletePackage}>
+                Delete
+              </button>
             </div>
           )}
         </div>
@@ -366,9 +435,14 @@ function Sources({
   refresh: () => Promise<void>;
 }) {
   const [sources, setSources] = useState<Source[]>([]);
+  const [trust, setTrust] = useState<Array<{ source_id: string; risk_score: number }>>([]);
   const [compileInfo, setCompileInfo] = useState<{ chunks: number; keywords: string[] } | null>(null);
 
-  const load = useCallback(() => api.sources(id).then(setSources), [id]);
+  const load = useCallback(async () => {
+    const [nextSources, nextTrust] = await Promise.all([api.sources(id), api.trust(id)]);
+    setSources(nextSources);
+    setTrust(nextTrust);
+  }, [id]);
   useEffect(() => void load(), [load]);
 
   function upload(file: File | undefined) {
@@ -389,6 +463,24 @@ function Sources({
     });
   }
 
+  function remove(source: Source) {
+    if (!window.confirm(`Remove ${source.title}?`)) return;
+    void run(async () => {
+      await api.deleteSource(id, source.id);
+      await load();
+      await refresh();
+      setNotice(`Removed ${source.title}.`);
+    });
+  }
+
+  function setTrustLevel(source: Source, trustLevel: string) {
+    void run(async () => {
+      await api.updateSource(id, source.id, { trust_level: trustLevel });
+      await load();
+      setNotice(`Marked ${source.title} as ${trustLevel}.`);
+    });
+  }
+
   return (
     <div className="two-column">
       <div className="panel">
@@ -404,12 +496,26 @@ function Sources({
           </label>
         </div>
         <div className="table">
-          <div className="table-row table-head"><span>Source</span><span>Type</span><span>Trust</span></div>
+          <div className="table-row source-table table-head"><span>Source</span><span>Type</span><span>Trust</span><span>Actions</span></div>
           {sources.map((source) => (
-            <div className="table-row" key={source.id}>
+            <div className="table-row source-table" key={source.id}>
               <span><strong>{source.title}</strong><small>{source.path}</small></span>
               <span>{source.type.toUpperCase()}</span>
-              <span className="trust">{source.trust_level}</span>
+              <span className="trust">
+                {source.trust_level} · risk {trust.find((item) => item.source_id === source.id)?.risk_score ?? 0}
+              </span>
+              <span className="row-actions">
+                <select
+                  value={source.trust_level}
+                  onChange={(event) => setTrustLevel(source, event.target.value)}
+                >
+                  <option value="trusted">trusted</option>
+                  <option value="user_added">user_added</option>
+                  <option value="flagged">flagged</option>
+                  <option value="blocked">blocked</option>
+                </select>
+                <button className="button danger compact" onClick={() => remove(source)}>Remove</button>
+              </span>
             </div>
           ))}
           {!sources.length && <EmptyState title="No sources" body="Add TXT, Markdown, PDF, JSON, or JSONL files." />}
@@ -459,6 +565,14 @@ function Glossary({
     });
   }
 
+  function remove(entryId: string) {
+    void run(async () => {
+      await api.deleteGlossary(id, entryId);
+      await load();
+      setNotice("Glossary term deleted.");
+    });
+  }
+
   return (
     <div className="two-column">
       <form className="panel editor-form" onSubmit={submit}>
@@ -472,7 +586,11 @@ function Glossary({
         <div className="panel-heading"><div><span className="kicker">PACKAGE MEMORY</span><h3>{items.length} terms</h3></div></div>
         <div className="card-list">
           {items.map((item) => (
-            <article key={item.id}><strong>{item.source_term}</strong><span className="mapping">=&gt;</span><strong>{item.target_term}</strong><p>{item.notes}</p></article>
+            <article key={item.id}>
+              <strong>{item.source_term}</strong><span className="mapping">=&gt;</span><strong>{item.target_term}</strong>
+              <p>{item.notes}</p>
+              <button className="button danger compact" onClick={() => remove(item.id)}>Delete</button>
+            </article>
           ))}
           {!items.length && <EmptyState title="Glossary is empty" body="Preferred terms are injected before retrieved context." />}
         </div>
@@ -494,16 +612,34 @@ function Rules({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [priority, setPriority] = useState(5);
+  const [editing, setEditing] = useState("");
   const load = useCallback(() => api.rules(id).then(setItems), [id]);
   useEffect(() => void load(), [load]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
-      await api.addRule(id, { title, body, priority });
+      if (editing) await api.updateRule(id, editing, { title, body, priority });
+      else await api.addRule(id, { title, body, priority });
       setTitle(""); setBody(""); setPriority(5);
+      setEditing("");
       await load();
       setNotice("Rule added to the prompt layer.");
+    });
+  }
+
+  function edit(item: { id: string; title: string; body: string; priority: number }) {
+    setEditing(item.id);
+    setTitle(item.title);
+    setBody(item.body);
+    setPriority(item.priority);
+  }
+
+  function remove(ruleId: string) {
+    void run(async () => {
+      await api.deleteRule(id, ruleId);
+      await load();
+      setNotice("Rule deleted.");
     });
   }
 
@@ -514,15 +650,210 @@ function Rules({
         <label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
         <label>Instruction<textarea value={body} onChange={(event) => setBody(event.target.value)} required /></label>
         <label>Priority<input type="range" min="1" max="10" value={priority} onChange={(event) => setPriority(Number(event.target.value))} /><span>{priority}</span></label>
-        <button className="button primary">Save rule</button>
+        <button className="button primary">{editing ? "Update rule" : "Save rule"}</button>
       </form>
       <div className="panel">
         <div className="card-list rule-list">
           {items.map((item) => (
-            <article key={item.id}><span className="priority">P{item.priority}</span><strong>{item.title}</strong><p>{item.body}</p></article>
+            <article key={item.id}>
+              <span className="priority">P{item.priority}</span><strong>{item.title}</strong><p>{item.body}</p>
+              <div className="row-actions">
+                <button className="button compact" onClick={() => edit(item)}>Edit</button>
+                <button className="button danger compact" onClick={() => remove(item.id)}>Delete</button>
+              </div>
+            </article>
           ))}
           {!items.length && <EmptyState title="No custom rules" body="Rules are layered ahead of examples and retrieved context." />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Examples({
+  id,
+  run,
+  setNotice,
+}: {
+  id: string;
+  run: (task: () => Promise<void>) => Promise<void>;
+  setNotice: (value: string) => void;
+}) {
+  const [items, setItems] = useState<Array<{ id: string; input: string; output: string; task: string; mode: string }>>([]);
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [task, setTask] = useState("");
+  const [mode, setMode] = useState("");
+  const [editing, setEditing] = useState("");
+  const load = useCallback(() => api.examples(id).then(setItems), [id]);
+  useEffect(() => void load(), [load]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      const data = { input, output, task, mode };
+      if (editing) await api.updateExample(id, editing, data);
+      else await api.addExample(id, data);
+      setInput(""); setOutput(""); setTask(""); setMode(""); setEditing("");
+      await load();
+      setNotice("Example saved.");
+    });
+  }
+
+  function edit(item: { id: string; input: string; output: string; task: string; mode: string }) {
+    setEditing(item.id); setInput(item.input); setOutput(item.output);
+    setTask(item.task); setMode(item.mode);
+  }
+
+  function remove(exampleId: string) {
+    void run(async () => {
+      await api.deleteExample(id, exampleId);
+      await load();
+      setNotice("Example deleted.");
+    });
+  }
+
+  return (
+    <div className="two-column">
+      <form className="panel editor-form" onSubmit={submit}>
+        <span className="kicker">FEW-SHOT BEHAVIOR</span><h3>{editing ? "Edit example" : "Add example"}</h3>
+        <label>Input<textarea value={input} onChange={(event) => setInput(event.target.value)} required /></label>
+        <label>Expected output<textarea value={output} onChange={(event) => setOutput(event.target.value)} required /></label>
+        <label>Task<input value={task} onChange={(event) => setTask(event.target.value)} /></label>
+        <label>Mode<input value={mode} onChange={(event) => setMode(event.target.value)} /></label>
+        <button className="button primary">Save example</button>
+      </form>
+      <div className="panel card-list">
+        {items.map((item) => (
+          <article key={item.id}>
+            <strong>{item.input}</strong><p>{item.output}</p>
+            <div className="row-actions">
+              <button className="button compact" onClick={() => edit(item)}>Edit</button>
+              <button className="button danger compact" onClick={() => remove(item.id)}>Delete</button>
+            </div>
+          </article>
+        ))}
+        {!items.length && <EmptyState title="No examples" body="Examples shape package-specific output behavior." />}
+      </div>
+    </div>
+  );
+}
+
+function Suggestions({
+  id,
+  run,
+  setNotice,
+}: {
+  id: string;
+  run: (task: () => Promise<void>) => Promise<void>;
+  setNotice: (value: string) => void;
+}) {
+  const [items, setItems] = useState<Suggestion[]>([]);
+  const load = useCallback(() => api.suggestions(id).then(setItems), [id]);
+  useEffect(() => void load(), [load]);
+
+  function apply(item: Suggestion) {
+    void run(async () => {
+      await api.applySuggestion(id, item);
+      setItems((current) => current.filter((value) => value.id !== item.id));
+      setNotice(`Applied ${item.kind} suggestion.`);
+    });
+  }
+
+  return (
+    <div className="panel">
+      <div className="panel-heading">
+        <div><span className="kicker">KNOWLEDGE ASSISTANT</span><h3>Review suggested package assets</h3></div>
+        <button className="button secondary" onClick={() => void load()}>Regenerate</button>
+      </div>
+      <div className="card-list suggestion-grid">
+        {items.map((item) => (
+          <article key={item.id}>
+            <span className="domain-tag">{item.kind} · {(item.confidence * 100).toFixed(0)}%</span>
+            <h3>{item.title}</h3><p>{item.reason}</p>
+            <pre>{JSON.stringify(item.payload, null, 2)}</pre>
+            <button className="button primary" onClick={() => apply(item)}>Apply suggestion</button>
+          </article>
+        ))}
+        {!items.length && <EmptyState title="No suggestions" body="Add and compile sources, then regenerate package suggestions." />}
+      </div>
+    </div>
+  );
+}
+
+function Corrections({
+  id,
+  run,
+  setNotice,
+}: {
+  id: string;
+  run: (task: () => Promise<void>) => Promise<void>;
+  setNotice: (value: string) => void;
+}) {
+  const [items, setItems] = useState<Array<Record<string, string>>>([]);
+  const load = useCallback(() => api.corrections(id).then(setItems), [id]);
+  useEffect(() => void load(), [load]);
+
+  function review(correctionId: string, status: string) {
+    void run(async () => {
+      await api.reviewCorrection(id, correctionId, status);
+      await load();
+      setNotice(`Correction ${status}.`);
+    });
+  }
+
+  return (
+    <div className="panel">
+      <div className="panel-heading"><div><span className="kicker">REVIEW QUEUE</span><h3>Corrections</h3></div></div>
+      <div className="card-list">
+        {items.map((item) => (
+          <article key={item.id}>
+            <span className={`status-chip ${item.status || "pending"}`}>{item.status || "pending"}</span>
+            <strong>{item.input}</strong>
+            <p><b>Rejected answer:</b> {item.bad_output}</p>
+            <p><b>Corrected answer:</b> {item.corrected_output}</p>
+            <p>{item.lesson}</p>
+            <div className="row-actions">
+              <button className="button primary compact" onClick={() => review(item.id, "approved")}>Approve</button>
+              <button className="button danger compact" onClick={() => review(item.id, "rejected")}>Reject</button>
+              <button className="button compact" onClick={() => review(item.id, "pending")}>Reopen</button>
+            </div>
+          </article>
+        ))}
+        {!items.length && <EmptyState title="No corrections" body="Corrections created from model feedback appear here for review." />}
+      </div>
+    </div>
+  );
+}
+
+function History({ id }: { id: string }) {
+  const [runs, setRuns] = useState<ModelRun[]>([]);
+  const [selected, setSelected] = useState<ModelRun | null>(null);
+  useEffect(() => void api.runs(id).then((items) => {
+    setRuns(items);
+    setSelected(items[0] || null);
+  }), [id]);
+
+  return (
+    <div className="history-grid">
+      <div className="panel card-list">
+        {runs.map((run) => (
+          <button className="history-item" key={run.id} onClick={() => setSelected(run)}>
+            <strong>{run.provider}/{run.model}</strong>
+            <span>{run.latency_ms} ms · {new Date(run.created_at).toLocaleString()}</span>
+            <p>{run.input}</p>
+          </button>
+        ))}
+        {!runs.length && <EmptyState title="No runs yet" body="Playground and eval requests are recorded locally." />}
+      </div>
+      <div className="panel inspector">
+        {selected ? (
+          <>
+            <span className="kicker">PROMPT INSPECTOR</span><h3>{selected.input}</h3>
+            <h4>Assembled prompt</h4><pre>{selected.prompt}</pre>
+            <h4>Output</h4><pre>{selected.output}</pre>
+          </>
+        ) : <EmptyState title="Select a run" body="Inspect the complete prompt and model output." />}
       </div>
     </div>
   );
@@ -546,15 +877,35 @@ function Playground({
   const [input, setInput] = useState("");
   const [provider, setProvider] = useState(detail.manifest.model_policy.default_provider);
   const [model, setModel] = useState(detail.manifest.model_policy.default_model);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [profiles, setProfiles] = useState<ModelProfile[]>([]);
   const [result, setResult] = useState<AskResult | null>(null);
+  const [corrected, setCorrected] = useState("");
+  const [lesson, setLesson] = useState("");
+  useEffect(() => void api.profiles().then(setProfiles), []);
 
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
-      const response = await api.ask(id, { input, provider, model, mode: detail.manifest.default_mode });
+      const response = await api.ask(id, { input, provider, model, mode: detail.manifest.default_mode, base_url: baseUrl || undefined });
       setResult(response);
       setContext(response.retrieved_context);
       setNotice(`${response.provider}/${response.model} completed in ${response.latency_ms} ms.`);
+    });
+  }
+
+  function saveCorrection() {
+    if (!result || !corrected) return;
+    void run(async () => {
+      await api.correct(id, {
+        input,
+        bad_output: result.output,
+        corrected_output: corrected,
+        lesson,
+        create_eval: true,
+      });
+      setCorrected(""); setLesson("");
+      setNotice("Correction queued for review and a regression eval was created.");
     });
   }
 
@@ -562,11 +913,23 @@ function Playground({
     <div className="playground">
       <div className="panel chat-panel">
         <div className="model-bar">
+          <label>Profile<select defaultValue="" onChange={(event) => {
+            const profile = profiles.find((item) => item.id === event.target.value);
+            if (profile) { setProvider(profile.provider); setModel(profile.model); setBaseUrl(profile.base_url || ""); }
+          }}><option value="">Custom</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select></label>
           <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select></label>
           <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} /></label>
+          <label>Base URL<input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="Provider default" /></label>
         </div>
         <div className="answer">
-          {result ? <><span className="kicker">MODEL OUTPUT</span><pre>{result.output}</pre></> : <EmptyState title="Ask with this K-LIB" body="The prompt is assembled from policy, glossary, rules, examples, and retrieved evidence." />}
+          {result ? <><span className="kicker">MODEL OUTPUT</span><pre>{result.output}</pre>
+            <div className="correction-box">
+              <h4>Correct this answer</h4>
+              <textarea value={corrected} onChange={(event) => setCorrected(event.target.value)} placeholder="Reviewed correct output" />
+              <input value={lesson} onChange={(event) => setLesson(event.target.value)} placeholder="Lesson for future runs" />
+              <button className="button secondary" onClick={saveCorrection} disabled={!corrected}>Queue correction</button>
+            </div>
+          </> : <EmptyState title="Ask with this K-LIB" body="The prompt is assembled from policy, glossary, rules, examples, and retrieved evidence." />}
         </div>
         <form className="prompt-box" onSubmit={submit}>
           <textarea placeholder="Ask, translate, review, or explain..." value={input} onChange={(event) => setInput(event.target.value)} required />
@@ -600,7 +963,16 @@ function Evals({
 }) {
   const [provider, setProvider] = useState(detail.manifest.model_policy.default_provider);
   const [model, setModel] = useState(detail.manifest.model_policy.default_model);
+  const [secondProvider, setSecondProvider] = useState("mock");
+  const [secondModel, setSecondModel] = useState("offline-demo");
   const [results, setResults] = useState<Array<{ eval_id: string; score: number; output: string }>>([]);
+  const [arena, setArena] = useState<Array<{ name: string; average: number }>>([]);
+  const [evals, setEvals] = useState<Array<{ id: string; name: string; task: string; input: string; checks: Record<string, unknown> }>>([]);
+  const [evalName, setEvalName] = useState("");
+  const [evalInput, setEvalInput] = useState("");
+  const [mustInclude, setMustInclude] = useState("");
+  const loadEvals = useCallback(() => api.evals(id).then(setEvals), [id]);
+  useEffect(() => void loadEvals(), [loadEvals]);
 
   function evaluate() {
     void run(async () => {
@@ -611,17 +983,74 @@ function Evals({
     });
   }
 
+  function compare() {
+    void run(async () => {
+      const response = await api.arena(id, [
+        { name: `${provider}/${model}`, provider, model },
+        { name: `${secondProvider}/${secondModel}`, provider: secondProvider, model: secondModel },
+      ]);
+      setArena(response.models);
+      setNotice("Multi-model arena completed.");
+    });
+  }
+
+  function addEval(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      await api.saveEval(id, {
+        name: evalName,
+        task: detail.manifest.default_mode,
+        input: evalInput,
+        checks: {
+          must_include: mustInclude.split(",").map((item) => item.trim()).filter(Boolean),
+          citation_required: detail.manifest.retrieval_policy.require_citations,
+        },
+      });
+      setEvalName(""); setEvalInput(""); setMustInclude("");
+      await loadEvals();
+      setNotice("Eval saved.");
+    });
+  }
+
+  function removeEval(evalId: string) {
+    void run(async () => {
+      await api.deleteEval(id, evalId);
+      await loadEvals();
+      setNotice("Eval deleted.");
+    });
+  }
+
   return (
     <div className="panel eval-panel">
       <div className="panel-heading">
         <div><span className="kicker">REGRESSION TESTING</span><h3>Eval Arena</h3></div>
         <div className="inline-controls"><select value={provider} onChange={(event) => setProvider(event.target.value)}><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option><option>mock</option></select><input value={model} onChange={(event) => setModel(event.target.value)} /><button className="button primary" onClick={evaluate}>Run evals</button></div>
       </div>
+      <div className="arena-controls">
+        <select value={secondProvider} onChange={(event) => setSecondProvider(event.target.value)}><option>mock</option><option>ollama</option><option>lmstudio</option><option>nvidia</option><option>openai</option></select>
+        <input value={secondModel} onChange={(event) => setSecondModel(event.target.value)} />
+        <button className="button secondary" onClick={compare}>Compare two models</button>
+        {arena.map((item) => <span className="score-pill" key={item.name}>{item.name}: {item.average.toFixed(1)}</span>)}
+      </div>
       <div className="score-grid">
         {results.map((result) => (
           <article key={result.eval_id}><div className="score">{result.score.toFixed(0)}</div><div><strong>{result.eval_id}</strong><p>{result.output}</p></div></article>
         ))}
         {!results.length && <EmptyState title={`${detail.eval_count} evals ready`} body="Corrections can become deterministic regression checks." />}
+      </div>
+      <div className="eval-editor-grid">
+        <form className="editor-form" onSubmit={addEval}>
+          <h3>Add deterministic eval</h3>
+          <label>Name<input value={evalName} onChange={(event) => setEvalName(event.target.value)} /></label>
+          <label>Question<textarea value={evalInput} onChange={(event) => setEvalInput(event.target.value)} required /></label>
+          <label>Required phrases, comma-separated<input value={mustInclude} onChange={(event) => setMustInclude(event.target.value)} /></label>
+          <button className="button primary">Save eval</button>
+        </form>
+        <div className="card-list">
+          {evals.map((item) => (
+            <article key={item.id}><strong>{item.name || item.id}</strong><p>{item.input}</p><button className="button danger compact" onClick={() => removeEval(item.id)}>Delete</button></article>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -670,30 +1099,154 @@ function KnowledgeDiff({
 }
 
 function Settings({
+  detail,
   refresh,
   setNotice,
+  run,
 }: {
+  detail: LibraryDetail | null;
   refresh: () => Promise<void>;
   setNotice: (value: string) => void;
+  run: (task: () => Promise<void>) => Promise<void>;
 }) {
   const [base, setBase] = useState(getApiBase());
+  const [profiles, setProfiles] = useState<ModelProfile[]>([]);
+  const [profileName, setProfileName] = useState("");
+  const [provider, setProvider] = useState("ollama");
+  const [model, setModel] = useState("gemma3");
+  const [profileBase, setProfileBase] = useState("");
+  const [apiKeyEnv, setApiKeyEnv] = useState("");
+  const [packageName, setPackageName] = useState(detail?.manifest.name || "");
+  const [description, setDescription] = useState(detail?.manifest.description || "");
+  const [domain, setDomain] = useState(detail?.manifest.domain || "general");
+  const [defaultProvider, setDefaultProvider] = useState(
+    detail?.manifest.model_policy.default_provider || "ollama",
+  );
+  const [defaultModel, setDefaultModel] = useState(
+    detail?.manifest.model_policy.default_model || "gemma3",
+  );
+  const [allowOnline, setAllowOnline] = useState(
+    detail?.manifest.model_policy.allow_online_models || false,
+  );
+  const [adapter, setAdapter] = useState(
+    detail?.manifest.retrieval_policy.vector_adapter || "local",
+  );
+  const [hybrid, setHybrid] = useState(
+    detail?.manifest.retrieval_policy.use_hybrid_search || false,
+  );
+  const loadProfiles = useCallback(() => api.profiles().then(setProfiles), []);
+  useEffect(() => void loadProfiles(), [loadProfiles]);
+  useEffect(() => {
+    if (!detail) return;
+    setPackageName(detail.manifest.name);
+    setDescription(detail.manifest.description);
+    setDomain(detail.manifest.domain);
+    setDefaultProvider(detail.manifest.model_policy.default_provider);
+    setDefaultModel(detail.manifest.model_policy.default_model);
+    setAllowOnline(detail.manifest.model_policy.allow_online_models);
+    setAdapter(detail.manifest.retrieval_policy.vector_adapter);
+    setHybrid(detail.manifest.retrieval_policy.use_hybrid_search);
+  }, [detail]);
   function submit(event: FormEvent) {
     event.preventDefault();
     setApiBase(base);
     void refresh();
     setNotice("API endpoint updated.");
   }
+  function saveProfile(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      await api.saveProfile({
+        name: profileName,
+        provider,
+        model,
+        base_url: profileBase || null,
+        api_key_env: apiKeyEnv || null,
+        options: {},
+      });
+      setProfileName("");
+      await loadProfiles();
+      setNotice("Model profile saved. Secrets remain in environment variables.");
+    });
+  }
+  function saveRetrieval() {
+    if (!detail) return;
+    void run(async () => {
+      await api.updateLibrary(detail.manifest.id, {
+        retrieval_policy: {
+          ...detail.manifest.retrieval_policy,
+          vector_adapter: adapter,
+          use_hybrid_search: hybrid,
+        },
+      });
+      await refresh();
+      setNotice("Retrieval policy saved. Recompile the package to rebuild indexes.");
+    });
+  }
+  function removeProfile(profileId: string) {
+    void run(async () => {
+      await api.deleteProfile(profileId);
+      await loadProfiles();
+      setNotice("Model profile deleted.");
+    });
+  }
+  function savePackage() {
+    if (!detail) return;
+    void run(async () => {
+      await api.updateLibrary(detail.manifest.id, {
+        name: packageName,
+        description,
+        domain,
+        model_policy: {
+          ...detail.manifest.model_policy,
+          default_provider: defaultProvider,
+          default_model: defaultModel,
+          allow_online_models: allowOnline,
+        },
+      });
+      await refresh();
+      setNotice("Package manifest saved.");
+    });
+  }
   return (
-    <form className="panel settings-panel" onSubmit={submit}>
-      <span className="kicker">LOCAL RUNTIME</span><h3>Connection settings</h3>
-      <label>FastAPI base URL<input value={base} onChange={(event) => setBase(event.target.value)} /></label>
-      <p>
-        The desktop app starts and stops its packaged backend automatically. This setting is
-        retained for browser development or an explicitly managed remote runtime. Ollama defaults
-        to <code>http://localhost:11434/v1</code>.
-      </p>
-      <button className="button primary">Save and reconnect</button>
-    </form>
+    <div className="settings-grid">
+      <div className="panel settings-panel">
+        <span className="kicker">PACKAGE MANIFEST</span><h3>Package settings</h3>
+        <label>Name<input value={packageName} onChange={(event) => setPackageName(event.target.value)} /></label>
+        <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+        <label>Domain<input value={domain} onChange={(event) => setDomain(event.target.value)} /></label>
+        <label>Default provider<input value={defaultProvider} onChange={(event) => setDefaultProvider(event.target.value)} /></label>
+        <label>Default model<input value={defaultModel} onChange={(event) => setDefaultModel(event.target.value)} /></label>
+        <label className="check-label"><input type="checkbox" checked={allowOnline} onChange={(event) => setAllowOnline(event.target.checked)} /> Allow online model providers</label>
+        <button className="button primary" onClick={savePackage} disabled={!detail}>Save package</button>
+      </div>
+      <form className="panel settings-panel" onSubmit={submit}>
+        <span className="kicker">LOCAL RUNTIME</span><h3>Connection settings</h3>
+        <label>FastAPI base URL<input value={base} onChange={(event) => setBase(event.target.value)} /></label>
+        <p>The desktop starts its packaged backend automatically. Remote endpoints remain explicit.</p>
+        <button className="button primary">Save and reconnect</button>
+      </form>
+      <div className="panel settings-panel">
+        <span className="kicker">RETRIEVAL</span><h3>Index adapter</h3>
+        <label>Vector adapter<select value={adapter} onChange={(event) => setAdapter(event.target.value as "local" | "chroma" | "qdrant")}><option value="local">local</option><option value="chroma">chroma</option><option value="qdrant">qdrant</option></select></label>
+        <label className="check-label"><input type="checkbox" checked={hybrid} onChange={(event) => setHybrid(event.target.checked)} /> Fuse lexical and vector results</label>
+        <button className="button primary" onClick={saveRetrieval} disabled={!detail}>Save retrieval policy</button>
+      </div>
+      <form className="panel settings-panel" onSubmit={saveProfile}>
+        <span className="kicker">MODEL PROFILES</span><h3>Reusable connector</h3>
+        <label>Name<input value={profileName} onChange={(event) => setProfileName(event.target.value)} required /></label>
+        <label>Provider<input value={provider} onChange={(event) => setProvider(event.target.value)} required /></label>
+        <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} required /></label>
+        <label>Base URL<input value={profileBase} onChange={(event) => setProfileBase(event.target.value)} /></label>
+        <label>API-key environment variable<input value={apiKeyEnv} onChange={(event) => setApiKeyEnv(event.target.value)} placeholder="NVIDIA_API_KEY" /></label>
+        <button className="button primary">Save profile</button>
+      </form>
+      <div className="panel card-list">
+        {profiles.map((profile) => (
+          <article key={profile.id}><strong>{profile.name}</strong><p>{profile.provider}/{profile.model}<br />{profile.base_url}<br />Secret: {profile.api_key_env || "none"}</p><button className="button danger compact" onClick={() => removeProfile(profile.id)}>Delete</button></article>
+        ))}
+      </div>
+    </div>
   );
 }
 

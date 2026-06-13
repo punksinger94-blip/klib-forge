@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -50,18 +51,43 @@ class OpenAICompatibleProvider(ModelProvider):
                 payload[option] = options[option]
         if isinstance(options.get("extra_body"), dict):
             payload.update(options["extra_body"])
-        try:
-            response = httpx.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return str(data["choices"][0]["message"]["content"])
-        except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
-            raise ModelProviderError(f"Model request failed: {exc}") from exc
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                response = httpx.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return str(data["choices"][0]["message"]["content"])
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                retryable = status in {408, 429} or status >= 500
+                if retryable and attempt < max_attempts - 1:
+                    retry_after = exc.response.headers.get("retry-after")
+                    try:
+                        if retry_after:
+                            delay = min(float(retry_after), 120)
+                        elif status == 429:
+                            delay = min(15 * (2**attempt), 120)
+                        else:
+                            delay = 2**attempt
+                    except ValueError:
+                        delay = 15 if status == 429 else 2**attempt
+                    time.sleep(delay)
+                    continue
+                raise ModelProviderError(f"Model request failed: HTTP {status}") from exc
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                if attempt < max_attempts - 1:
+                    time.sleep(2**attempt)
+                    continue
+                raise ModelProviderError(f"Model request failed: {exc}") from exc
+            except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
+                raise ModelProviderError(f"Model request failed: {exc}") from exc
+        raise ModelProviderError("Model request failed after retries")
 
 
 class MockProvider(ModelProvider):
