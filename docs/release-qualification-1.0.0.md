@@ -22,6 +22,7 @@ session.
 
 | Gate | Result |
 | --- | --- |
+| GitHub Actions hosted CI | Pass on Python 3.11, Python 3.12, and desktop |
 | Ruff | Pass |
 | Python tests | 36 passed |
 | Python coverage | 86% |

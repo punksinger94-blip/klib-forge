@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   python:
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -30,7 +30,7 @@ jobs:
       - run: python -m pip_audit -r requirements/runtime-lock.txt
 
   desktop:
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
