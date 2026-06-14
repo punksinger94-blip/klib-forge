@@ -1,0 +1,13 @@
+K-LIB Forge 1.0.0 Preview 1
+
+THIS WINDOWS INSTALLER IS SELF-SIGNED.
+
+The installer is Authenticode-signed and timestamped through SignPath using
+the project's self-signed test certificate CN=klib. Windows will report an
+unknown or untrusted publisher. This preview is intended for early testing and
+is not the final publicly trusted release.
+
+Download only from:
+https://github.com/punksinger94-blip/klib-forge/releases
+
+Verify the installer against SHA256SUMS.txt before running it.

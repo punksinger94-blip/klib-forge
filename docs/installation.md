@@ -6,6 +6,12 @@
 2. Verify the SHA-256 checksum and the Authenticode signature.
 3. Run the installer. The desktop includes its Python API sidecar.
 
+Preview releases may use a self-signed Authenticode certificate while the
+project's publicly trusted signing application is pending. Windows will report
+an unknown or untrusted publisher for those builds. Install previews only when
+downloaded directly from the official GitHub release and after verifying the
+published SHA-256 checksum.
+
 K-LIB Forge stores desktop runtime data under the application-local data
 directory returned by Windows for `com.klibforge.desktop`.
 
