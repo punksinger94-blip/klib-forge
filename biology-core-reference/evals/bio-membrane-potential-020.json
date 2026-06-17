@@ -1,0 +1,19 @@
+{
+  "id": "bio-membrane-potential-020",
+  "name": "Resting membrane potential",
+  "task": "grounded_biology",
+  "input": "What is the approximate resting membrane potential of a typical neuron? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "-70",
+        "−70",
+        "70 mV",
+        "70 millivolt",
+        "-65",
+        "−65"
+      ]
+    ],
+    "citation_required": true
+  }
+}

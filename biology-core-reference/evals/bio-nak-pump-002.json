@@ -1,0 +1,29 @@
+{
+  "id": "bio-nak-pump-002",
+  "name": "Sodium-potassium pump stoichiometry",
+  "task": "grounded_biology",
+  "input": "For each ATP it uses, how many sodium and potassium ions does the sodium-potassium pump move, and in which directions? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "3 Na",
+        "3 sodium",
+        "three Na",
+        "three sodium"
+      ],
+      [
+        "2 K",
+        "2 potassium",
+        "two K",
+        "two potassium"
+      ],
+      [
+        "out"
+      ],
+      [
+        "in"
+      ]
+    ],
+    "citation_required": true
+  }
+}

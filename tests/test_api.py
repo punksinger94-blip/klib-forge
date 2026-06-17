@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from klib_api.main import app
+from klib_core.medchem import rdkit_available
 
 
 def test_api_health_and_library_flow(tmp_path: Path, monkeypatch) -> None:
@@ -58,6 +60,7 @@ def test_builtin_examples_are_advanced_ready_and_idempotent(
     assert catalog.status_code == 200
     assert {item["id"] for item in catalog.json()} == {
         "biomedical-evidence-synthesis",
+        "medchem-lite",
         "production-incident-response",
     }
 
@@ -92,6 +95,130 @@ def test_builtin_examples_are_advanced_ready_and_idempotent(
     assert missing.status_code == 404
 
 
+@pytest.mark.skipif(not rdkit_available(), reason="RDKit optional extra is not installed")
+def test_medchem_api_workflow_is_visible_end_to_end(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("KLIB_HOME", str(tmp_path / "medchem-home"))
+    client = TestClient(app)
+
+    capabilities = client.get("/capabilities")
+    assert capabilities.status_code == 200
+    assert capabilities.json()["medchem"]["available"] is True
+
+    installed = client.post("/examples/medchem-lite/install")
+    assert installed.status_code == 201
+    assert installed.json()["library"]["manifest"]["domain"] == (
+        "chemistry/medicinal-chemistry"
+    )
+    assert installed.json()["library"]["manifest"]["description"].startswith(
+        "MedChem-KLIB Lite turns molecular structures"
+    )
+
+    status = client.get("/libraries/medchem-lite/medchem/status")
+    assert status.status_code == 200
+    assert status.json()["imported_compounds"] == 6
+    assert status.json()["compiled_compounds"] == 5
+    assert status.json()["invalid_compounds"] == 1
+    assert status.json()["evidence"]["targets"] == 3
+    assert status.json()["evidence"]["test_environments"] == 2
+    assert status.json()["evidence"]["bioactivity_records"] == 5
+    assert status.json()["evidence"]["literature_records"] == 4
+    assert status.json()["evidence"]["missing_compound_provenance"] == []
+    assert status.json()["evidence"]["ready"] is True
+
+    sources = client.get("/medchem/sources")
+    assert sources.status_code == 200
+    assert sources.json()["pubchem"]["release_phase"] == "P1 active"
+    assert sources.json()["chembl"]["release_phase"] == "P2 planned"
+    assert sources.json()["zinc"]["release_phase"] == "P3 planned"
+
+    validation = client.get("/libraries/medchem-lite/medchem/validate")
+    assert validation.status_code == 200
+    assert validation.json()["valid"] == 5
+    assert validation.json()["invalid"] == 1
+
+    compiled = client.post("/libraries/medchem-lite/medchem/compile")
+    assert compiled.status_code == 200
+    assert compiled.json()["unique_scaffolds"] == 2
+    assert {item["code"] for item in compiled.json()["diagnostics"]} >= {
+        "CHEM-W020",
+        "CHEM-W040",
+    }
+    assert compiled.json()["duplicate_identity_groups"] == []
+
+    compounds = client.get("/libraries/medchem-lite/medchem/compounds?query=aspirin")
+    assert compounds.status_code == 200
+    assert compounds.json()[0]["name"] == "Aspirin"
+
+    structure = client.get(
+        "/medchem/structure.svg",
+        params={
+            "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+            "width": 240,
+            "height": 140,
+        },
+    )
+    assert structure.status_code == 200
+    assert structure.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in structure.text
+
+    structure_3d = client.get(
+        "/medchem/structure3d.sdf",
+        params={"smiles": "CC(=O)Oc1ccccc1C(=O)O"},
+    )
+    assert structure_3d.status_code == 200
+    assert structure_3d.headers["content-type"].startswith("chemical/x-mdl-sdfile")
+    assert "K-LIB Forge 3D conformer" in structure_3d.text
+
+    environments = client.get("/libraries/medchem-lite/medchem/environments")
+    assert environments.status_code == 200
+    assert environments.json()[0]["record_type"] == "test_environment"
+
+    research = client.post(
+        "/libraries/medchem-lite/medchem/research",
+        json={"question": "Summarize the evidence for aspirin."},
+    )
+    assert research.status_code == 200
+    assert research.json()["allowed"] is True
+    assert "[1]" in research.json()["answer"]
+    assert len(research.json()["citations"]) == 2
+
+    agent = client.post(
+        "/libraries/medchem-lite/medchem/agent",
+        json={
+            "question": "Summarize aspirin evidence and next data to import.",
+            "provider": "mock",
+            "model": "offline",
+        },
+    )
+    assert agent.status_code == 200
+    assert agent.json()["ready_for_review"] is True
+    assert agent.json()["context"]["compound"]["name"] == "Aspirin"
+    assert agent.json()["context"]["source_catalog"]["pubchem"]["release_phase"] == "P1 active"
+
+    evidence_evals = client.post("/libraries/medchem-lite/medchem/evals")
+    assert evidence_evals.status_code == 200
+    assert evidence_evals.json()["score"] == 100
+    assert evidence_evals.json()["total"] == 9
+
+    similar = client.post(
+        "/libraries/medchem-lite/medchem/similar",
+        json={"smiles": "CC(=O)Oc1ccccc1C(=O)O", "top_k": 2},
+    )
+    assert similar.status_code == 200
+    assert similar.json()[0]["name"] == "Aspirin"
+    assert similar.json()[0]["tanimoto"] == 1.0
+
+    blocked = client.post(
+        "/medchem/safety-check",
+        json={"request": "Give me step-by-step synthesis instructions for compound X."},
+    )
+    assert blocked.status_code == 200
+    assert blocked.json()["allowed"] is False
+
+
 def test_api_model_catalog_uses_shared_provider_registry(
     tmp_path: Path,
     monkeypatch,
@@ -103,6 +230,7 @@ def test_api_model_catalog_uses_shared_provider_registry(
     assert {
         "anthropic",
         "azure-openai",
+        "b-ai",
         "bedrock",
         "gemini",
         "nvidia",

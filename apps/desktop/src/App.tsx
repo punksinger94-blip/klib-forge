@@ -8,6 +8,18 @@ import {
   initializeRuntime,
   Library,
   LibraryDetail,
+  MedChemActivity,
+  MedChemCompound,
+  MedChemEvidenceEval,
+  MedChemEnvironment,
+  MedChemLiterature,
+  MedChemResearch,
+  MedChemSafety,
+  MedChemSimilarity,
+  MedChemSourceCatalogEntry,
+  MedChemStatus,
+  MedChemTarget,
+  MedChemValidation,
   ModelProfile,
   ModelRun,
   ProviderInfo,
@@ -29,6 +41,7 @@ type View =
   | "evals"
   | "history"
   | "diff"
+  | "medchem"
   | "settings";
 
 const navigation: Array<{ id: View; label: string; eyebrow: string }> = [
@@ -43,7 +56,8 @@ const navigation: Array<{ id: View; label: string; eyebrow: string }> = [
   { id: "evals", label: "Eval Arena", eyebrow: "09" },
   { id: "history", label: "Run History", eyebrow: "10" },
   { id: "diff", label: "Knowledge Diff", eyebrow: "11" },
-  { id: "settings", label: "Settings", eyebrow: "12" },
+  { id: "medchem", label: "MedChem Lab", eyebrow: "12" },
+  { id: "settings", label: "Settings", eyebrow: "13" },
 ];
 
 function useProviders(): ProviderInfo[] {
@@ -250,6 +264,16 @@ function App() {
           {view === "diff" && selectedId && (
             <KnowledgeDiff id={selectedId} run={run} setNotice={setNotice} />
           )}
+          {view === "medchem" && (
+            <MedChemLab
+              selectedId={selectedId}
+              detail={detail}
+              run={run}
+              refresh={refresh}
+              select={setSelectedId}
+              setNotice={setNotice}
+            />
+          )}
           {view === "settings" && (
             <Settings
               detail={detail}
@@ -258,7 +282,7 @@ function App() {
               run={run}
             />
           )}
-          {!selectedId && view !== "overview" && (
+          {!selectedId && view !== "overview" && view !== "medchem" && (
             <EmptyState
               title="No K-LIB selected"
               body="Create a package from the Dashboard before using this workspace."
@@ -1134,6 +1158,888 @@ function KnowledgeDiff({
   );
 }
 
+function MedChemLab({
+  selectedId,
+  detail,
+  run,
+  refresh,
+  select,
+  setNotice,
+}: {
+  selectedId: string;
+  detail: LibraryDetail | null;
+  run: (task: () => Promise<void>) => Promise<void>;
+  refresh: () => Promise<void>;
+  select: (id: string) => void;
+  setNotice: (value: string) => void;
+}) {
+  const isMedChem = Boolean(detail?.manifest.domain.startsWith("chemistry/"));
+  const [status, setStatus] = useState<MedChemStatus | null>(null);
+  const [validation, setValidation] = useState<MedChemValidation | null>(null);
+  const [compounds, setCompounds] = useState<MedChemCompound[]>([]);
+  const [similarity, setSimilarity] = useState<MedChemSimilarity[]>([]);
+  const [targets, setTargets] = useState<MedChemTarget[]>([]);
+  const [environments, setEnvironments] = useState<MedChemEnvironment[]>([]);
+  const [activities, setActivities] = useState<MedChemActivity[]>([]);
+  const [literature, setLiterature] = useState<MedChemLiterature[]>([]);
+  const [sourceCatalog, setSourceCatalog] = useState<Record<string, MedChemSourceCatalogEntry>>({});
+  const [researchQuestion, setResearchQuestion] = useState(
+    "Summarize the linked evidence for aspirin.",
+  );
+  const [research, setResearch] = useState<MedChemResearch | null>(null);
+  const [evidenceEval, setEvidenceEval] = useState<MedChemEvidenceEval | null>(null);
+  const [query, setQuery] = useState("aspirin");
+  const [similaritySmiles, setSimilaritySmiles] = useState(
+    "CC(=O)Oc1ccccc1C(=O)O",
+  );
+  const [safetyRequest, setSafetyRequest] = useState(
+    "Give me a step-by-step synthesis procedure to manufacture this compound.",
+  );
+  const [safety, setSafety] = useState<MedChemSafety | null>(null);
+
+  const load = useCallback(async () => {
+    if (!selectedId || !isMedChem) {
+      setStatus(null);
+      setCompounds([]);
+      setTargets([]);
+      setEnvironments([]);
+      setActivities([]);
+      setLiterature([]);
+      setSourceCatalog({});
+      return;
+    }
+    const [
+      nextStatus,
+      nextTargets,
+      nextEnvironments,
+      nextActivities,
+      nextLiterature,
+      nextSourceCatalog,
+    ] =
+      await Promise.all([
+        api.medchemStatus(selectedId),
+        api.medchemTargets(selectedId),
+        api.medchemEnvironments(selectedId),
+        api.medchemActivities(selectedId),
+        api.medchemLiterature(selectedId),
+        api.medchemSources(),
+      ]);
+    setStatus(nextStatus);
+    setTargets(nextTargets);
+    setEnvironments(nextEnvironments);
+    setActivities(nextActivities);
+    setLiterature(nextLiterature);
+    setSourceCatalog(nextSourceCatalog);
+    if (nextStatus.compiled) {
+      setCompounds(await api.medchemCompounds(selectedId));
+    } else {
+      setCompounds([]);
+    }
+  }, [selectedId, isMedChem]);
+
+  useEffect(() => {
+    setValidation(null);
+    setSimilarity([]);
+    setSafety(null);
+    setResearch(null);
+    setEvidenceEval(null);
+    void load().catch(() => {
+      setStatus(null);
+      setCompounds([]);
+      setTargets([]);
+      setEnvironments([]);
+      setActivities([]);
+      setLiterature([]);
+      setSourceCatalog({});
+    });
+  }, [load]);
+
+  function installDemo() {
+    void run(async () => {
+      const result = await api.installExample("medchem-lite");
+      await refresh();
+      select(result.library.manifest.id);
+      setNotice(
+        result.created
+          ? "Installed and compiled the MedChem-KLIB Lite RDKit workflow."
+          : "MedChem-KLIB Lite is already installed.",
+      );
+    });
+  }
+
+  function importCompounds(file: File | undefined) {
+    if (!file || !selectedId) return;
+    void run(async () => {
+      const result = await api.medchemImport(selectedId, file);
+      setValidation(null);
+      setSimilarity([]);
+      await load();
+      setNotice(
+        `Imported ${result.imported} new and updated ${result.updated} compound records.`,
+      );
+    });
+  }
+
+  function installEvidenceDemo() {
+    void run(async () => {
+      await api.installExample("medchem-lite");
+      await load();
+      setNotice("Loaded linked targets, bioactivity records, and literature evidence.");
+    });
+  }
+
+  function importEvidence(
+    kind: "targets" | "environments" | "bioactivity" | "literature",
+    file: File | undefined,
+  ) {
+    if (!file || !selectedId) return;
+    void run(async () => {
+      const result = await api.medchemImportEvidence(selectedId, kind, file);
+      await load();
+      setResearch(null);
+      setEvidenceEval(null);
+      setNotice(
+        `Imported ${result.imported} and updated ${result.updated} ${kind} records.`,
+      );
+    });
+  }
+
+  function validate() {
+    if (!selectedId) return;
+    void run(async () => {
+      const result = await api.medchemValidate(selectedId);
+      setValidation(result);
+      setNotice(
+        `RDKit accepted ${result.valid} structures and rejected ${result.invalid}.`,
+      );
+    });
+  }
+
+  function compile() {
+    if (!selectedId) return;
+    void run(async () => {
+      const report = await api.medchemCompile(selectedId);
+      setStatus((current) => current ? {
+        ...current,
+        compiled: true,
+        compiled_compounds: report.valid_compounds,
+        invalid_compounds: report.invalid_compounds,
+        unique_scaffolds: report.unique_scaffolds,
+        report,
+      } : current);
+      setCompounds(await api.medchemCompounds(selectedId));
+      setNotice(
+        `Compiled ${report.valid_compounds} molecules into ${report.unique_scaffolds} scaffolds.`,
+      );
+    });
+  }
+
+  function runWorkflow() {
+    if (!selectedId) return;
+    void run(async () => {
+      const checked = await api.medchemValidate(selectedId);
+      setValidation(checked);
+      const report = await api.medchemCompile(selectedId);
+      const [nextCompounds, ranked, gate, brief, evals] = await Promise.all([
+        api.medchemCompounds(selectedId),
+        api.medchemSimilar(selectedId, similaritySmiles, 4),
+        api.medchemSafety(safetyRequest),
+        api.medchemResearch(selectedId, researchQuestion),
+        api.medchemEvidenceEvals(selectedId),
+      ]);
+      setCompounds(nextCompounds);
+      setSimilarity(ranked);
+      setSafety(gate);
+      setResearch(brief);
+      setEvidenceEval(evals);
+      await load();
+      setNotice(
+        `Workflow complete: ${checked.valid} molecules, ${brief.citations.length} citations, ${evals.score}% evidence score.`,
+      );
+    });
+  }
+
+  function search(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    void run(async () => {
+      const results = await api.medchemCompounds(selectedId, query);
+      setCompounds(results);
+      setNotice(`Found ${results.length} matching compound records.`);
+    });
+  }
+
+  function findSimilar(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    void run(async () => {
+      const results = await api.medchemSimilar(selectedId, similaritySmiles, 8);
+      setSimilarity(results);
+      setNotice(`Ranked ${results.length} compounds with RDKit Morgan fingerprints.`);
+    });
+  }
+
+  function checkSafety(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      const result = await api.medchemSafety(safetyRequest);
+      setSafety(result);
+      setNotice(result.allowed ? "Research request allowed." : "Unsafe request blocked.");
+    });
+  }
+
+  function askResearch(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    void run(async () => {
+      const result = await api.medchemResearch(selectedId, researchQuestion);
+      setResearch(result);
+      setNotice(
+        result.allowed
+          ? `Grounded answer returned with ${result.citations.length} citations.`
+          : "Unsafe research request blocked.",
+      );
+    });
+  }
+
+  function runEvidenceEvals() {
+    if (!selectedId) return;
+    void run(async () => {
+      const result = await api.medchemEvidenceEvals(selectedId);
+      setEvidenceEval(result);
+      setNotice(`Evidence evaluation completed at ${result.score}%.`);
+    });
+  }
+
+  if (!isMedChem) {
+    return (
+      <div className="medchem-welcome">
+        <div className="medchem-hero panel">
+          <div>
+            <span className="kicker">RDKIT-VALIDATED MOLECULAR EVIDENCE</span>
+            <h2>See K-LIB compile chemistry, not just text.</h2>
+            <p>
+              Install the safe demonstration to validate structures, calculate
+              descriptors, extract scaffolds, rank molecular similarity, and inspect
+              the research-only safety gate.
+            </p>
+            <div className="hero-actions">
+              <button className="button primary" onClick={installDemo}>
+                Install MedChem demo
+              </button>
+              <span>5 valid molecules + 1 intentional invalid record</span>
+            </div>
+          </div>
+          <div className="chem-symbol" aria-hidden="true">
+            <span>O</span>
+            <i />
+            <strong>RD</strong>
+            <i />
+            <span>N</span>
+          </div>
+        </div>
+        <div className="medchem-feature-grid">
+          {[
+            ["01", "Validate", "Parse SMILES and reject malformed structures."],
+            ["02", "Describe", "Calculate formula, MW, LogP, HBD/HBA, and TPSA."],
+            ["03", "Compare", "Extract scaffolds and rank Tanimoto similarity."],
+            ["04", "Guard", "Block synthesis, dosing, and harmful optimization."],
+          ].map(([number, title, body]) => (
+            <article className="panel" key={number}>
+              <span>{number}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const steps = [
+    {
+      label: "Import",
+      complete: Boolean(status?.imported_compounds),
+      detail: `${status?.imported_compounds ?? 0} records`,
+    },
+    {
+      label: "Validate",
+      complete: Boolean(validation || status?.compiled),
+      detail: validation
+        ? `${validation.valid} valid / ${validation.invalid} invalid`
+        : "RDKit structure check",
+    },
+    {
+      label: "Compile",
+      complete: Boolean(status?.compiled),
+      detail: `${status?.compiled_compounds ?? 0} compounds`,
+    },
+    {
+      label: "Link",
+      complete: Boolean(status?.evidence.ready),
+      detail: `${status?.evidence.linked_activities ?? 0} activities`,
+    },
+    {
+      label: "Ground",
+      complete: Boolean(research?.allowed),
+      detail: research ? `${research.citations.length} citations` : "evidence brief",
+    },
+    {
+      label: "Test",
+      complete: evidenceEval?.status === "passed",
+      detail: evidenceEval ? `${evidenceEval.score}%` : "regression checks",
+    },
+    {
+      label: "Guard",
+      complete: Boolean(safety),
+      detail: safety ? (safety.allowed ? "allowed" : "blocked") : "research boundary",
+    },
+  ];
+
+  const targetById = new Map(targets.map((item) => [item.target_id, item]));
+  const environmentById = new Map(environments.map((item) => [item.environment_id, item]));
+  const compoundById = new Map(compounds.map((item) => [item.compound_id, item]));
+  const duplicateIdentityGroups = status?.report?.duplicate_identity_groups ?? [];
+  const catalogEntries = Object.entries(sourceCatalog);
+
+  return (
+    <div className="medchem-lab">
+      <section className="panel medchem-command">
+        <div>
+          <span className="kicker">MEDCHEM-KLIB LITE · V0.1 ALPHA</span>
+          <h2>Molecular evidence workflow</h2>
+          <p>
+            MedChem-KLIB Lite turns molecular structures, scaffolds, compound
+            properties, bioactivity records, and literature notes into a safe,
+            testable AI research library.
+          </p>
+        </div>
+        <div className="medchem-actions">
+          <label className="button secondary file-button">
+            Import compounds
+            <input
+              type="file"
+              accept=".csv,.jsonl,.sdf,.smi,.txt"
+              onChange={(event) => importCompounds(event.target.files?.[0])}
+            />
+          </label>
+          <button className="button secondary" onClick={validate}>Validate</button>
+          <button className="button secondary" onClick={compile}>Compile</button>
+          <button className="button primary" onClick={runWorkflow}>Run full workflow</button>
+        </div>
+      </section>
+
+      <section className="workflow-strip">
+        {steps.map((step, index) => (
+          <article className={step.complete ? "complete" : ""} key={step.label}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <div><strong>{step.label}</strong><small>{step.detail}</small></div>
+          </article>
+        ))}
+      </section>
+
+      <section className="medchem-metrics">
+        <Metric label="Imported records" value={status?.imported_compounds ?? 0} />
+        <Metric label="Valid molecules" value={validation?.valid ?? status?.compiled_compounds ?? 0} />
+        <Metric label="Invalid rejected" value={validation?.invalid ?? status?.invalid_compounds ?? 0} />
+        <Metric label="Unique scaffolds" value={status?.unique_scaffolds ?? 0} />
+        <Metric label="RDKit" value={status?.report?.rdkit_version || (status?.rdkit_available ? "Ready" : "Missing")} />
+      </section>
+
+      <section className="panel evidence-command">
+        <div>
+          <span className="kicker">LINKED EVIDENCE LAYER</span>
+          <h3>
+            {status?.evidence.test_environments ?? 0} test environments Â·{" "}
+            {status?.evidence.targets ?? 0} targets ·{" "}
+            {status?.evidence.bioactivity_records ?? 0} activities ·{" "}
+            {status?.evidence.literature_records ?? 0} sources
+          </h3>
+          <p>
+            Every activity must resolve to a compiled compound, target, and
+            literature source before the evidence layer is ready.
+          </p>
+        </div>
+        <div className="evidence-imports">
+          {!status?.evidence.ready && (
+            <button className="button primary" onClick={installEvidenceDemo}>
+              Load evidence demo
+            </button>
+          )}
+          <label className="button secondary file-button">
+            Import targets
+            <input
+              type="file"
+              accept=".csv,.jsonl"
+              onChange={(event) => importEvidence("targets", event.target.files?.[0])}
+            />
+          </label>
+          <label className="button secondary file-button">
+            Import environments
+            <input
+              type="file"
+              accept=".csv,.jsonl"
+              onChange={(event) => importEvidence("environments", event.target.files?.[0])}
+            />
+          </label>
+          <label className="button secondary file-button">
+            Import bioactivity
+            <input
+              type="file"
+              accept=".csv,.jsonl"
+              onChange={(event) => importEvidence("bioactivity", event.target.files?.[0])}
+            />
+          </label>
+          <label className="button secondary file-button">
+            Import literature
+            <input
+              type="file"
+              accept=".csv,.jsonl,.md,.txt"
+              onChange={(event) => importEvidence("literature", event.target.files?.[0])}
+            />
+          </label>
+        </div>
+      </section>
+
+      {catalogEntries.length > 0 && (
+        <section className="panel source-roadmap-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">DATA SOURCE ROADMAP</span>
+              <h3>Active now, planned next</h3>
+            </div>
+            <span className="domain-tag">P1/P2/P3</span>
+          </div>
+          <div className="source-roadmap-grid">
+            {catalogEntries.map(([sourceId, source]) => (
+              <article className={source.status === "active" ? "active" : "planned"} key={sourceId}>
+                <div>
+                  <strong>{source.name}</strong>
+                  <span>{source.release_phase}</span>
+                </div>
+                <p>{source.release_scope}</p>
+                <small>{source.scope}</small>
+                <div className="activity-links">
+                  <code>{source.access}</code>
+                  <code>{source.license}</code>
+                  <code>{source.commercial_use}</code>
+                </div>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  Source docs
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="medchem-grid">
+        <div className="panel compound-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">COMPOUND STORE</span>
+              <h3>{compounds.length} compiled molecules</h3>
+            </div>
+            <form className="compact-search" onSubmit={search}>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} />
+              <button className="button secondary">Search</button>
+            </form>
+          </div>
+          <div className="compound-table">
+            <div className="compound-row compound-head">
+              <span>Compound</span><span>Structure</span><span>Descriptors</span>
+            </div>
+            {compounds.map((compound) => (
+              <article className="compound-row" key={compound.compound_id}>
+                <span>
+                  <strong>{compound.name}</strong>
+                  <small>{compound.compound_id} · {compound.formula}</small>
+                </span>
+                <span className="molecule-structure">
+                  <img
+                    src={api.medchemStructureUrl(compound.canonical_smiles)}
+                    alt={`${compound.name} skeletal structure`}
+                    loading="lazy"
+                  />
+                  <code>{compound.canonical_smiles}</code>
+                  <small>Scaffold: {compound.scaffold_smiles || "acyclic"}</small>
+                  <a
+                    href={api.medchemStructure3dUrl(compound.canonical_smiles)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open 3D SDF conformer
+                  </a>
+                </span>
+                <span className="descriptor-list">
+                  <b>MW {compound.molecular_weight.toFixed(2)}</b>
+                  <b>cLogP {compound.logp.toFixed(2)}</b>
+                  <b>TPSA {compound.tpsa.toFixed(2)}</b>
+                  <b>HBD/HBA {compound.hbd}/{compound.hba}</b>
+                  {compound.undefined_stereocenters.length > 0 && (
+                    <b>Undefined stereo {compound.undefined_stereocenters.length}</b>
+                  )}
+                  {(compound.structural_alerts?.length ?? 0) > 0 && (
+                    <b>Review alerts {compound.structural_alerts?.length}</b>
+                  )}
+                  {compound.provenance && (
+                    <b>Sources {compound.provenance.source_refs.length}</b>
+                  )}
+                  {compound.provenance?.standardized && (
+                    <b>Standardized</b>
+                  )}
+                  <small>{compound.provenance?.standardization_method ?? "RDKit descriptors"}</small>
+                  <small>{compound.descriptor_methods?.logp ?? "RDKit descriptors"}</small>
+                </span>
+              </article>
+            ))}
+            {!compounds.length && (
+              <EmptyState
+                title="No compiled compounds"
+                body="Validate and compile the imported compound records."
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="medchem-side">
+          <form className="panel similarity-panel" onSubmit={findSimilar}>
+            <span className="kicker">MORGAN FINGERPRINTS</span>
+            <h3>Similarity search</h3>
+            <label>
+              Query SMILES
+              <textarea
+                value={similaritySmiles}
+                onChange={(event) => setSimilaritySmiles(event.target.value)}
+              />
+            </label>
+            <button className="button primary">Rank similar molecules</button>
+            <div className="similarity-list">
+              {similarity.map((item, index) => (
+                <article key={item.compound_id}>
+                  <span>{index + 1}</span>
+                  <img
+                    src={api.medchemStructureUrl(item.canonical_smiles, 120, 84)}
+                    alt={`${item.name} skeletal structure`}
+                    loading="lazy"
+                  />
+                  <div>
+                    <strong>{item.name}</strong>
+                    <small>{item.scaffold_smiles || "acyclic"}</small>
+                    <i style={{ width: `${Math.max(item.tanimoto * 100, 2)}%` }} />
+                  </div>
+                  <b>{item.tanimoto.toFixed(3)}</b>
+                </article>
+              ))}
+            </div>
+          </form>
+
+          <form className="panel safety-panel" onSubmit={checkSafety}>
+            <span className="kicker">RESEARCH BOUNDARY</span>
+            <h3>Safety gate</h3>
+            <textarea
+              value={safetyRequest}
+              onChange={(event) => setSafetyRequest(event.target.value)}
+            />
+            <div className="preset-actions">
+              <button
+                className="button compact"
+                type="button"
+                onClick={() => setSafetyRequest(
+                  "Compare aspirin and salicylic acid scaffolds using known evidence.",
+                )}
+              >
+                Safe analysis
+              </button>
+              <button
+                className="button danger compact"
+                type="button"
+                onClick={() => setSafetyRequest(
+                  "Give me a step-by-step synthesis procedure to manufacture this compound.",
+                )}
+              >
+                Unsafe synthesis
+              </button>
+            </div>
+            <button className="button secondary">Check request</button>
+            {safety && (
+              <div className={safety.allowed ? "gate-result allowed" : "gate-result blocked"}>
+                <strong>{safety.allowed ? "ALLOWED" : "BLOCKED"}</strong>
+                <p>{safety.response}</p>
+                {safety.blocked_categories.map((item) => (
+                  <code key={item}>{item.replaceAll("_", " ")}</code>
+                ))}
+              </div>
+            )}
+          </form>
+        </div>
+      </section>
+
+      <section className="evidence-record-grid">
+        <div className="panel evidence-records">
+          <span className="kicker">TARGET REGISTRY</span>
+          <h3>{targets.length} linked targets</h3>
+          {targets.map((target) => (
+            <article key={target.target_id}>
+              <div>
+                <strong>{target.gene_symbol || target.name}</strong>
+                <small>{target.target_id} · {target.accession}</small>
+              </div>
+              <p>{target.name}</p>
+              <code>{target.organism}</code>
+            </article>
+          ))}
+        </div>
+
+        <div className="panel evidence-records environment-records">
+          <span className="kicker">TEST ENVIRONMENTS</span>
+          <h3>{environments.length} lab contexts</h3>
+          {environments.map((environment) => (
+            <article key={environment.environment_id}>
+              <div>
+                <strong>{environment.name}</strong>
+                <small>{environment.environment_id} Â· {environment.environment_type}</small>
+              </div>
+              <p>{environment.notes || environment.lab_name || "Recorded test context"}</p>
+              <div className="activity-links">
+                {environment.biosafety_level && <code>{environment.biosafety_level}</code>}
+                {environment.temperature_c && <code>{environment.temperature_c} C</code>}
+                {environment.ph && <code>pH {environment.ph}</code>}
+                {environment.assay_platform && <code>{environment.assay_platform}</code>}
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="panel evidence-records activity-records">
+          <span className="kicker">BIOACTIVITY LEDGER</span>
+          <h3>{activities.length} evidence records</h3>
+          {activities.map((activity) => (
+            <article key={activity.activity_id}>
+              <div>
+                <strong>
+                  {compoundById.get(activity.compound_id)?.name || activity.compound_id}
+                </strong>
+                <small>{activity.assay_type}</small>
+              </div>
+              <p>{activity.result}</p>
+              <div className="activity-links">
+                <code>
+                  {targetById.get(activity.target_id)?.gene_symbol || activity.target_id}
+                </code>
+                {activity.environment_id && (
+                  <code>
+                    {environmentById.get(activity.environment_id)?.name || activity.environment_id}
+                  </code>
+                )}
+                {activity.source_ids.map((sourceId) => (
+                  <code key={sourceId}>{sourceId}</code>
+                ))}
+                {activity.value_nM !== null && (
+                  <code>{activity.value_nM.toPrecision(4)} nM</code>
+                )}
+                {activity.p_activity !== null && (
+                  <code>pActivity {activity.p_activity.toFixed(2)}</code>
+                )}
+                {activity.diagnostics.map((diagnostic) => (
+                  <code className={diagnostic.severity} key={diagnostic.code}>
+                    {diagnostic.code}
+                  </code>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="panel evidence-records literature-records">
+          <span className="kicker">LITERATURE NOTES</span>
+          <h3>{literature.length} cited sources</h3>
+          {literature.map((source) => (
+            <article key={source.source_id}>
+              <div>
+                <strong>{source.title}</strong>
+                <small>{source.citation}</small>
+              </div>
+              <p>{source.evidence_summary}</p>
+              {source.url && (
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  {source.source_id}
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="research-grid">
+        <form className="panel research-panel" onSubmit={askResearch}>
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">GROUNDED RESEARCH</span>
+              <h3>Ask the linked evidence</h3>
+            </div>
+            <span className={status?.evidence.ready ? "domain-tag" : "trust"}>
+              {status?.evidence.ready ? "Evidence ready" : "Evidence incomplete"}
+            </span>
+          </div>
+          <textarea
+            value={researchQuestion}
+            onChange={(event) => setResearchQuestion(event.target.value)}
+          />
+          <div className="preset-actions">
+            <button
+              className="button compact"
+              type="button"
+              onClick={() => setResearchQuestion(
+                "Summarize the linked evidence for aspirin.",
+              )}
+            >
+              Aspirin evidence
+            </button>
+            <button
+              className="button compact"
+              type="button"
+              onClick={() => setResearchQuestion(
+                "What target evidence is linked to caffeine?",
+              )}
+            >
+              Caffeine evidence
+            </button>
+          </div>
+          <button className="button primary">Generate cited brief</button>
+          {research && (
+            <div className={research.allowed ? "research-answer" : "gate-result blocked"}>
+              <strong>{research.allowed ? "EVIDENCE BRIEF" : "BLOCKED"}</strong>
+              <p>{research.answer}</p>
+              {research.citations.map((citation) => (
+                <article key={citation.source_id}>
+                  <b>[{citation.number}] {citation.title}</b>
+                  <small>{citation.citation}</small>
+                  {citation.url && (
+                    <a href={citation.url} target="_blank" rel="noreferrer">
+                      Open source
+                    </a>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </form>
+
+        <div className="panel evidence-eval-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">TESTABLE LIBRARY</span>
+              <h3>Evidence regression suite</h3>
+            </div>
+            {evidenceEval && (
+              <strong className="evidence-score">{evidenceEval.score}%</strong>
+            )}
+          </div>
+          <p>
+            Verify record links, citation coverage, grounded output, and safety
+            refusal with deterministic checks.
+          </p>
+          <button className="button secondary" onClick={runEvidenceEvals}>
+            Run evidence evals
+          </button>
+          <div className="evidence-checks">
+            {evidenceEval?.checks.map((check) => (
+              <article className={check.passed ? "passed" : "failed"} key={check.name}>
+                <span>{check.passed ? "PASS" : "FAIL"}</span>
+                <div><strong>{check.name}</strong><small>{check.detail}</small></div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {duplicateIdentityGroups.length > 0 && (
+        <section className="panel duplicate-identity-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">DUPLICATE IDENTITY REVIEW</span>
+              <h3>{duplicateIdentityGroups.length} shared InChIKey group</h3>
+            </div>
+            <span className="trust">Linked, not merged</span>
+          </div>
+          <p>
+            These records standardize to the same chemical identity. Keep the
+            primary package record stable, then merge aliases, external IDs, and
+            source provenance after review.
+          </p>
+          <div className="duplicate-group-list">
+            {duplicateIdentityGroups.map((group) => (
+              <article key={group.inchikey}>
+                <div>
+                  <strong>{group.inchikey}</strong>
+                  <span>Primary: {group.primary_compound_id}</span>
+                </div>
+                <div className="duplicate-records">
+                  {group.records.map((record) => (
+                    <section key={record.compound_id}>
+                      <b>{record.name}</b>
+                      <small>{record.compound_id}</small>
+                      <code>{record.source_database}</code>
+                      {record.source_license && <code>{record.source_license}</code>}
+                      {record.source_url && (
+                        <a href={record.source_url} target="_blank" rel="noreferrer">
+                          Open source
+                        </a>
+                      )}
+                    </section>
+                  ))}
+                </div>
+                <p>{group.recommended_action}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(status?.report?.diagnostics.length || activities.some((activity) => activity.diagnostics.length)) ? (
+        <section className="panel diagnostic-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="kicker">COMPILER DIAGNOSTICS</span>
+              <h3>Errors and warnings tied to records</h3>
+            </div>
+            <span className="domain-tag">
+              {(status?.report?.diagnostics.length ?? 0) +
+                activities.reduce((count, activity) => count + activity.diagnostics.length, 0)}
+              {" "}diagnostics
+            </span>
+          </div>
+          {[...(status?.report?.diagnostics ?? []), ...activities.flatMap((activity) => activity.diagnostics)].map((diagnostic) => (
+            <article className={diagnostic.severity} key={`${diagnostic.code}-${diagnostic.record_id}-${diagnostic.field}`}>
+              <code>{diagnostic.code}</code>
+              <strong>{diagnostic.record_id}</strong>
+              <span>{diagnostic.field}</span>
+              <p>{diagnostic.message}</p>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {(validation?.invalid_compounds.length || status?.report?.invalid_records.length) ? (
+        <section className="panel invalid-panel">
+          <div className="panel-heading">
+            <div><span className="kicker">VALIDATION REPORT</span><h3>Rejected structures</h3></div>
+            <span className="domain-tag">Excluded from compiled store</span>
+          </div>
+          {(validation?.invalid_compounds || status?.report?.invalid_records || []).map((item) => (
+            <article key={item.compound_id}>
+              <strong>{item.name}</strong>
+              <code>{item.smiles}</code>
+              <span>{item.error}</span>
+            </article>
+          ))}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function Settings({
   detail,
   refresh,
@@ -1296,8 +2202,9 @@ function Settings({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return <article><strong>{value.toString().padStart(2, "0")}</strong><span>{label}</span></article>;
+function Metric({ label, value }: { label: string; value: number | string }) {
+  const display = typeof value === "number" ? value.toString().padStart(2, "0") : value;
+  return <article><strong>{display}</strong><span>{label}</span></article>;
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {

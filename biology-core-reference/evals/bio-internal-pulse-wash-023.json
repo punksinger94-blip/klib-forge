@@ -1,0 +1,15 @@
+{
+  "id": "bio-internal-pulse-wash-023",
+  "name": "Recover the private pulse and wash specification",
+  "task": "internal_protocol_recall",
+  "input": "For the fictional internal Aster-9 assay, state the oxygen percentage and duration of the hypoxia pulse, then give the Vela-B pH and number of washes. Cite the source.",
+  "checks": {
+    "must_include": [
+      "1.7",
+      "42",
+      "7.28",
+      "two"
+    ],
+    "citation_required": true
+  }
+}

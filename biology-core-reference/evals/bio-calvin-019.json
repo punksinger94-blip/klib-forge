@@ -1,0 +1,19 @@
+{
+  "id": "bio-calvin-019",
+  "name": "Calvin cycle enzyme and location",
+  "task": "grounded_biology",
+  "input": "Which enzyme fixes carbon in the Calvin cycle, and in which part of the chloroplast does the cycle occur? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "RuBisCO",
+        "rubisco",
+        "Rubisco"
+      ],
+      [
+        "stroma"
+      ]
+    ],
+    "citation_required": true
+  }
+}

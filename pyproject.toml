@@ -52,6 +52,9 @@ dev = [
   "pip-tools>=7.5,<8",
 ]
 chroma = ["chromadb>=1,<2"]
+medchem = [
+  "rdkit>=2025.3,<2027",
+]
 
 [project.scripts]
 klib = "klib_cli.main:app"

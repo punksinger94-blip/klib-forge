@@ -45,7 +45,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 1px #dfaf4b22; }
 textarea { min-height: 96px; resize: vertical; }
 .library-picker select { margin-top: 8px; font-size: 12px; font-family: var(--mono); }
-nav { display: grid; gap: 4px; padding-top: 12px; }
+nav { display: grid; gap: 4px; padding-top: 12px; overflow-y: auto; }
 .nav-item {
   border: 0; background: transparent; color: #9aa5af; text-align: left; padding: 11px 10px;
   border-radius: 3px; display: flex; gap: 13px; align-items: center; font-size: 13px;
@@ -185,10 +185,223 @@ code { font-family: var(--mono); color: var(--accent-2); }
 .empty-state p { max-width: 390px; margin: 7px 0 0; font-size: 11px; }
 .muted { color: var(--muted); }
 
+.medchem-welcome { display: grid; gap: 18px; }
+.medchem-hero {
+  min-height: 360px; display: grid; grid-template-columns: 1.2fr .8fr; align-items: center;
+  background:
+    radial-gradient(circle at 78% 48%, #8bc7b118, transparent 22%),
+    radial-gradient(circle at 92% 18%, #dfaf4b16, transparent 28%),
+    linear-gradient(145deg, #12191e, #0e1317);
+}
+.medchem-hero h2, .medchem-command h2 {
+  max-width: 700px; margin: 14px 0; color: #f1f4f5; font-size: 38px;
+  letter-spacing: -.05em; line-height: 1.08;
+}
+.medchem-hero p, .medchem-command p { max-width: 720px; font-size: 14px; }
+.chem-symbol {
+  min-height: 250px; display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 0 28px #8bc7b126);
+}
+.chem-symbol span, .chem-symbol strong {
+  width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid #8bc7b166;
+  border-radius: 50%; background: #8bc7b10d; color: var(--accent-2); font: 17px var(--mono);
+}
+.chem-symbol strong {
+  width: 110px; height: 110px; color: var(--accent); border-color: #dfaf4b77;
+  background: #dfaf4b0d; font-size: 27px;
+}
+.chem-symbol i { width: 72px; height: 1px; background: linear-gradient(90deg, #8bc7b188, #dfaf4b88); }
+.medchem-feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.medchem-feature-grid article > span { color: var(--accent); font: 10px var(--mono); }
+.medchem-feature-grid h3 { margin-top: 12px; }
+
+.medchem-lab { display: grid; gap: 16px; }
+.medchem-command {
+  display: flex; justify-content: space-between; align-items: center; gap: 28px;
+  background: linear-gradient(120deg, #131a20, #101519);
+}
+.medchem-command h2 { font-size: 29px; }
+.medchem-command p { margin-bottom: 0; }
+.medchem-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.workflow-strip { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line); background: var(--surface); }
+.workflow-strip article { min-height: 78px; padding: 15px; border-right: 1px solid var(--line); display: flex; gap: 12px; align-items: center; }
+.workflow-strip article:last-child { border-right: 0; }
+.workflow-strip article > span {
+  width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line-bright);
+  color: var(--muted); font: 9px var(--mono); border-radius: 50%;
+}
+.workflow-strip article.complete { background: #8bc7b108; }
+.workflow-strip article.complete > span { color: #0c1512; background: var(--accent-2); border-color: var(--accent-2); }
+.workflow-strip strong, .workflow-strip small { display: block; }
+.workflow-strip strong { font-size: 12px; }
+.workflow-strip small { margin-top: 5px; color: var(--muted); font: 8px var(--mono); }
+.medchem-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.medchem-metrics article { padding: 16px; background: var(--surface); border: 1px solid var(--line); }
+.medchem-metrics strong { display: block; color: var(--accent-2); font: 20px var(--mono); margin-bottom: 7px; }
+.medchem-metrics span { color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+.evidence-command {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  background: linear-gradient(120deg, #111a1b, #11161b);
+}
+.evidence-command h3 { margin: 8px 0; color: var(--accent-2); }
+.evidence-command p { margin-bottom: 0; max-width: 680px; }
+.evidence-imports { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.source-roadmap-panel { display: grid; gap: 13px; }
+.source-roadmap-grid {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;
+}
+.source-roadmap-grid article {
+  display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line);
+  background: #0d1216;
+}
+.source-roadmap-grid article.active { border-color: #8bc7b155; background: #8bc7b108; }
+.source-roadmap-grid article.planned { opacity: .92; }
+.source-roadmap-grid article > div:first-child {
+  display: flex; justify-content: space-between; gap: 10px; align-items: start;
+}
+.source-roadmap-grid strong { font-size: 11px; }
+.source-roadmap-grid span { color: var(--accent); font: 8px var(--mono); text-align: right; }
+.source-roadmap-grid p { margin: 0; color: #c7d0d6; font-size: 10px; line-height: 1.5; }
+.source-roadmap-grid small { color: var(--muted); font: 8px/1.5 var(--mono); }
+.source-roadmap-grid a {
+  color: var(--accent); font: 9px var(--mono); text-decoration: none;
+}
+.medchem-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(350px, .55fr); gap: 16px; align-items: start; }
+.medchem-side { display: grid; gap: 16px; }
+.compact-search { display: flex; gap: 7px; }
+.compact-search input { width: 180px; padding: 8px; }
+.compound-panel { padding-bottom: 10px; }
+.compound-table { display: grid; }
+.compound-row {
+  display: grid; grid-template-columns: .7fr 1.3fr .8fr; gap: 16px; padding: 15px 8px;
+  border-top: 1px solid var(--line); align-items: center;
+}
+.compound-row > span { min-width: 0; }
+.compound-row strong, .compound-row small { display: block; }
+.compound-row small { margin-top: 5px; color: var(--muted); font: 8px/1.5 var(--mono); overflow-wrap: anywhere; }
+.compound-row code { display: block; font: 9px/1.5 var(--mono); overflow-wrap: anywhere; }
+.compound-head { color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+.molecule-structure { display: grid; gap: 8px; }
+.molecule-structure img {
+  width: 100%; height: 150px; object-fit: contain; padding: 8px;
+  background: #f6f3eb; border: 1px solid #d8d2c4; border-radius: 3px;
+}
+.molecule-structure a { color: var(--accent); font: 9px var(--mono); text-decoration: none; }
+.descriptor-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.descriptor-list b { padding: 4px 6px; border: 1px solid var(--line); background: #0c1115; color: #aeb8c0; font: 8px var(--mono); }
+.similarity-panel, .safety-panel { display: grid; gap: 13px; }
+.similarity-panel textarea { min-height: 68px; font: 9px/1.5 var(--mono); }
+.similarity-list { display: grid; gap: 7px; }
+.similarity-list article { display: grid; grid-template-columns: 24px 72px 1fr 44px; gap: 9px; align-items: center; padding: 9px; background: #0d1216; border: 1px solid var(--line); }
+.similarity-list article > span { color: var(--accent); font: 9px var(--mono); }
+.similarity-list article > img {
+  width: 72px; height: 54px; object-fit: contain; padding: 3px;
+  background: #f6f3eb; border: 1px solid #d8d2c4; border-radius: 2px;
+}
+.similarity-list strong, .similarity-list small { display: block; font-size: 10px; }
+.similarity-list small { color: var(--muted); font: 8px var(--mono); margin: 3px 0 6px; }
+.similarity-list i { display: block; height: 3px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+.similarity-list b { text-align: right; color: var(--accent-2); font: 10px var(--mono); }
+.preset-actions { display: flex; gap: 6px; }
+.gate-result { padding: 12px; border: 1px solid var(--line); background: #0c1115; }
+.gate-result strong { font: 11px var(--mono); }
+.gate-result p { margin: 7px 0; font-size: 10px; }
+.gate-result code { display: inline-block; padding: 4px 6px; border: 1px solid currentColor; font-size: 8px; }
+.gate-result.allowed { border-color: #8bc7b155; }
+.gate-result.allowed strong { color: var(--accent-2); }
+.gate-result.blocked { border-color: #e4776855; }
+.gate-result.blocked strong, .gate-result.blocked code { color: var(--danger); }
+.evidence-record-grid {
+  display: grid; grid-template-columns: .65fr .8fr 1.15fr 1.2fr; gap: 16px; align-items: start;
+}
+.evidence-records { display: grid; gap: 10px; max-height: 640px; overflow: auto; }
+.evidence-records h3 { margin-bottom: 8px; }
+.evidence-records article {
+  padding: 13px; border: 1px solid var(--line); background: #0d1216;
+}
+.evidence-records article > div:first-child {
+  display: flex; justify-content: space-between; gap: 12px; align-items: start;
+}
+.evidence-records strong, .evidence-records small { display: block; }
+.evidence-records small { color: var(--muted); font: 8px/1.5 var(--mono); text-align: right; }
+.evidence-records p { margin: 9px 0; font-size: 10px; line-height: 1.55; }
+.evidence-records code { font-size: 8px; }
+.activity-links { display: flex !important; justify-content: flex-start !important; flex-wrap: wrap; gap: 5px; }
+.activity-links code {
+  padding: 4px 6px; border: 1px solid #8bc7b13d; background: #8bc7b108;
+}
+.activity-links code.error { color: var(--danger); border-color: #e4776855; background: #e477680a; }
+.activity-links code.warning { color: var(--accent); border-color: #dfaf4b55; background: #dfaf4b0a; }
+.literature-records a, .research-answer a {
+  color: var(--accent); font: 9px var(--mono); text-decoration: none;
+}
+.research-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: start; }
+.research-panel, .evidence-eval-panel { display: grid; gap: 12px; }
+.research-panel textarea { min-height: 82px; font: 11px/1.6 var(--mono); }
+.research-answer {
+  padding: 16px; border: 1px solid #8bc7b155; background: #0c1312;
+}
+.research-answer > strong { color: var(--accent-2); font: 10px var(--mono); }
+.research-answer > p { white-space: pre-line; color: #c7d0d6; font: 11px/1.7 var(--mono); margin: 10px 0 14px; }
+.research-answer article {
+  display: grid; gap: 5px; padding: 10px 0; border-top: 1px solid var(--line);
+}
+.research-answer article b { font-size: 10px; }
+.research-answer article small { color: var(--muted); font: 8px/1.5 var(--mono); }
+.evidence-score { color: var(--accent-2); font: 27px var(--mono); }
+.evidence-checks { display: grid; gap: 7px; margin-top: 4px; }
+.evidence-checks article {
+  display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center;
+  padding: 10px; border: 1px solid var(--line); background: #0d1216;
+}
+.evidence-checks article > span { font: 9px var(--mono); }
+.evidence-checks article.passed > span { color: var(--accent-2); }
+.evidence-checks article.failed > span { color: var(--danger); }
+.evidence-checks strong, .evidence-checks small { display: block; }
+.evidence-checks strong { font-size: 10px; }
+.evidence-checks small { margin-top: 3px; color: var(--muted); font: 8px/1.5 var(--mono); }
+.duplicate-identity-panel { display: grid; gap: 12px; border-color: #dfaf4b55; }
+.duplicate-identity-panel > p { max-width: 900px; margin: 0; font-size: 11px; line-height: 1.6; }
+.duplicate-group-list { display: grid; gap: 10px; }
+.duplicate-group-list > article {
+  display: grid; gap: 11px; padding: 13px; background: #0d1216; border: 1px solid var(--line);
+}
+.duplicate-group-list > article > div:first-child {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.duplicate-group-list strong { font: 10px var(--mono); color: var(--accent); overflow-wrap: anywhere; }
+.duplicate-group-list span { color: var(--muted); font: 9px var(--mono); }
+.duplicate-group-list p { margin: 0; color: #c7d0d6; font-size: 10px; line-height: 1.55; }
+.duplicate-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.duplicate-records section {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 10px; border: 1px solid #dfaf4b33; background: #dfaf4b08;
+}
+.duplicate-records b { width: 100%; font-size: 11px; }
+.duplicate-records small { color: var(--muted); font: 8px var(--mono); }
+.duplicate-records code { padding: 4px 6px; border: 1px solid #dfaf4b55; font-size: 8px; }
+.duplicate-records a { color: var(--accent); font: 9px var(--mono); text-decoration: none; }
+.diagnostic-panel article {
+  display: grid; grid-template-columns: 94px .55fr .35fr 1.3fr; gap: 12px; align-items: start;
+  padding: 12px 8px; border-top: 1px solid var(--line);
+}
+.diagnostic-panel article code { font-size: 9px; }
+.diagnostic-panel article strong { font-size: 11px; }
+.diagnostic-panel article span { color: var(--muted); font: 9px var(--mono); }
+.diagnostic-panel article p { margin: 0; font-size: 10px; line-height: 1.5; }
+.diagnostic-panel article.error code { color: var(--danger); }
+.diagnostic-panel article.warning code { color: var(--accent); }
+.invalid-panel article { display: grid; grid-template-columns: .6fr .6fr 1fr; gap: 14px; padding: 12px 8px; border-top: 1px solid var(--line); align-items: center; font-size: 11px; }
+.invalid-panel article code { color: var(--danger); }
+.invalid-panel article span { color: var(--muted); font: 9px var(--mono); }
+
 @media (max-width: 1200px) {
-  .dashboard-grid, .two-column, .playground, .settings-grid, .history-grid, .eval-editor-grid { grid-template-columns: 1fr; }
+  .dashboard-grid, .two-column, .playground, .settings-grid, .history-grid, .eval-editor-grid, .medchem-grid, .medchem-hero, .evidence-record-grid, .research-grid, .source-roadmap-grid, .duplicate-records { grid-template-columns: 1fr; }
   .create-panel { grid-row: auto; }
   .playground { height: auto; }
   .context-panel { min-height: 400px; }
   .metrics { grid-template-columns: 1fr 1fr; }
+  .medchem-feature-grid, .medchem-metrics { grid-template-columns: 1fr 1fr; }
+  .workflow-strip { grid-template-columns: 1fr; }
+  .workflow-strip article { border-right: 0; border-bottom: 1px solid var(--line); }
 }

@@ -1,0 +1,17 @@
+{
+  "id": "bio-codon-count-008",
+  "name": "Total number of codons",
+  "task": "grounded_biology",
+  "input": "How many possible codons are there, and how many code for amino acids? Cite.",
+  "checks": {
+    "must_include": [
+      "64"
+    ],
+    "must_include_any": [
+      [
+        "61"
+      ]
+    ],
+    "citation_required": true
+  }
+}

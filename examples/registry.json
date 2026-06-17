@@ -1,0 +1,38 @@
+{
+  "registry_version": "registry-preview.1",
+  "name": "K-LIB Forge Preview Registry",
+  "description": "Local preview registry for built-in and demonstrator K-LIB packages.",
+  "packages": [
+    {
+      "id": "medchem-lite",
+      "name": "MedChem-KLIB Lite",
+      "domain": "chemistry/medicinal-chemistry",
+      "status": "preview",
+      "knowledge_ir_version": "medchem-ir-preview.1",
+      "validator_profile": "rdkit-medchem-preview",
+      "docs": "docs/medchem-lite.md",
+      "example_path": "examples/medchem-lite",
+      "release_video": "dist/media/klib-forge-medchem-hermes-ab.mp4"
+    },
+    {
+      "id": "biomedical-evidence-synthesis",
+      "name": "Biomedical Evidence Synthesis",
+      "domain": "biology/primary-literature",
+      "status": "preview"
+    },
+    {
+      "id": "production-incident-response",
+      "name": "Production Incident Response",
+      "domain": "reliability/incident-response",
+      "status": "preview"
+    },
+    {
+      "id": "biology-core-reference",
+      "name": "Core Biology Reference",
+      "domain": "biology/general",
+      "status": "demo",
+      "example_path": "biology-core-reference",
+      "hermes_mcp": "klib_forge"
+    }
+  ]
+}

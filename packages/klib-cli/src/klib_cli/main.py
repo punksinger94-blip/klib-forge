@@ -18,6 +18,15 @@ from klib_core.benchmarks import (
 from klib_core.errors import KlibError
 from klib_core.examples import install_builtin_example, list_builtin_examples
 from klib_core.library import slugify
+from klib_core.medchem import (
+    MedChemStore,
+    conformer_3d_sdf,
+    describe_molecule,
+    initialize_medchem_library,
+    medchem_source_catalog,
+    safety_check,
+    scaffold_for_smiles,
+)
 from klib_core.profiles import ModelProfileManager
 from klib_core.providers import get_provider, provider_specs
 
@@ -30,10 +39,12 @@ glossary_app = typer.Typer(help="Manage glossary terms.")
 rule_app = typer.Typer(help="Manage K-LIB rules.")
 example_app = typer.Typer(help="Manage prompt examples.")
 profile_app = typer.Typer(help="Manage reusable model profiles.")
+medchem_app = typer.Typer(help="Build safe, research-only molecular evidence libraries.")
 app.add_typer(glossary_app, name="glossary")
 app.add_typer(rule_app, name="rule")
 app.add_typer(example_app, name="example")
 app.add_typer(profile_app, name="profile")
+app.add_typer(medchem_app, name="medchem")
 
 
 for stream in (sys.stdout, sys.stderr):
@@ -51,6 +62,10 @@ def engine() -> ForgeEngine:
 
 def profiles() -> ModelProfileManager:
     return ModelProfileManager(manager().home)
+
+
+def medchem_store(library: str | None) -> MedChemStore:
+    return MedChemStore(manager(), resolve_library(library))
 
 
 def emit(value: Any) -> None:
@@ -485,6 +500,269 @@ def model_test(
     """Test a model connector."""
 
     run_command(lambda: emit(get_provider(provider, base_url=base_url).test(model)))
+
+
+@medchem_app.command("init")
+def medchem_init(
+    name: str = typer.Argument("MedChem-KLIB Lite"),
+    library_id: str | None = typer.Option(None, "--id", help="Stable package id."),
+    path: Path | None = typer.Option(None, help="Target directory."),
+) -> None:
+    """Create a research-only MedChem K-LIB package."""
+
+    def action() -> None:
+        target = path or Path.cwd() / slugify(library_id or name)
+        manifest, library_path = initialize_medchem_library(
+            manager(),
+            name,
+            library_id=library_id,
+            path=target,
+        )
+        emit(
+            {
+                "created": str(library_path),
+                "manifest": manifest.model_dump(mode="json"),
+            }
+        )
+
+    run_command(action)
+
+
+@medchem_app.command("import")
+def medchem_import(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Import compounds from CSV, JSONL, SDF, SMI, or SMILES text."""
+
+    run_command(lambda: emit(medchem_store(library).import_compounds(source)))
+
+
+@medchem_app.command("sources")
+def medchem_sources() -> None:
+    """List supported and planned MedChem data providers with license notes."""
+
+    emit(medchem_source_catalog())
+
+
+@medchem_app.command("import-pubchem")
+def medchem_import_pubchem(
+    identifiers: list[str] = typer.Argument(
+        ...,
+        help="One or more PubChem names or CIDs.",
+    ),
+    library: str | None = typer.Option(None, "--library", "-l"),
+    namespace: str = typer.Option(
+        "name",
+        "--namespace",
+        help="PubChem lookup namespace: name or cid.",
+    ),
+    synonyms_limit: int = typer.Option(12, min=0, max=50),
+) -> None:
+    """Import compounds directly from PubChem PUG-REST."""
+
+    run_command(
+        lambda: emit(
+            medchem_store(library).import_pubchem(
+                identifiers,
+                namespace=namespace,
+                synonyms_limit=synonyms_limit,
+            )
+        )
+    )
+
+
+@medchem_app.command("import-targets")
+def medchem_import_targets(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Import target registry records from CSV or JSONL."""
+
+    run_command(lambda: emit(medchem_store(library).import_targets(source)))
+
+
+@medchem_app.command("import-environments")
+def medchem_import_environments(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Import lab, assay, or in-silico test environments from CSV or JSONL."""
+
+    run_command(lambda: emit(medchem_store(library).import_environments(source)))
+
+
+@medchem_app.command("import-bioactivity")
+def medchem_import_bioactivity(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Import compound-target bioactivity records from CSV or JSONL."""
+
+    run_command(lambda: emit(medchem_store(library).import_bioactivity(source)))
+
+
+@medchem_app.command("import-literature")
+def medchem_import_literature(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Import literature records from CSV, JSONL, Markdown, or text."""
+
+    run_command(lambda: emit(medchem_store(library).import_literature(source)))
+
+
+@medchem_app.command("validate")
+def medchem_validate(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Validate imported molecular structures with RDKit."""
+
+    run_command(lambda: emit(medchem_store(library).validate()))
+
+
+@medchem_app.command("compile")
+def medchem_compile(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Canonicalize molecules and build descriptors and scaffold records."""
+
+    run_command(lambda: emit(medchem_store(library).compile()))
+
+
+@medchem_app.command("descriptors")
+def medchem_descriptors(smiles: str) -> None:
+    """Calculate research descriptors for one SMILES structure."""
+
+    run_command(lambda: emit(describe_molecule(smiles)))
+
+
+@medchem_app.command("scaffold")
+def medchem_scaffold(smiles: str) -> None:
+    """Extract the Bemis-Murcko scaffold for one SMILES structure."""
+
+    run_command(lambda: emit(scaffold_for_smiles(smiles)))
+
+
+@medchem_app.command("conformer")
+def medchem_conformer(
+    smiles: str,
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Generate a deterministic RDKit 3D conformer as SDF."""
+
+    def action() -> None:
+        sdf = conformer_3d_sdf(smiles)
+        if output:
+            destination = output.expanduser().resolve()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(sdf, encoding="utf-8")
+            emit({"output": str(destination), "status": "research_reference_only"})
+        else:
+            typer.echo(sdf)
+
+    run_command(action)
+
+
+@medchem_app.command("search")
+def medchem_search(
+    query: str,
+    library: str | None = typer.Option(None, "--library", "-l"),
+    limit: int = typer.Option(20, min=1, max=500),
+) -> None:
+    """Search compiled compounds by id, name, synonym, SMILES, or InChIKey."""
+
+    run_command(lambda: emit(medchem_store(library).search(query, limit)))
+
+
+@medchem_app.command("similar")
+def medchem_similar(
+    smiles: str,
+    library: str | None = typer.Option(None, "--library", "-l"),
+    top_k: int = typer.Option(10, min=1, max=100),
+) -> None:
+    """Rank compiled compounds by Morgan-fingerprint Tanimoto similarity."""
+
+    run_command(lambda: emit(medchem_store(library).similar(smiles, top_k)))
+
+
+@medchem_app.command("evidence-status")
+def medchem_evidence_status(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Check compound, target, bioactivity, and citation link integrity."""
+
+    run_command(lambda: emit(medchem_store(library).evidence_status()))
+
+
+@medchem_app.command("research")
+def medchem_research(
+    question: str,
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Generate a deterministic, citation-grounded compound research brief."""
+
+    run_command(lambda: emit(medchem_store(library).research_brief(question)))
+
+
+@medchem_app.command("agent")
+def medchem_agent(
+    question: str,
+    library: str | None = typer.Option(None, "--library", "-l"),
+    provider: str = typer.Option("mock", "--provider"),
+    model: str = typer.Option("offline", "--model"),
+    base_url: str | None = typer.Option(None, "--base-url"),
+    pubchem: list[str] | None = typer.Option(
+        None,
+        "--pubchem",
+        help="PubChem name or CID to import before the research pass. Repeatable.",
+    ),
+    pubchem_namespace: str = typer.Option("name", "--pubchem-namespace"),
+    synonyms_limit: int = typer.Option(12, min=0, max=50),
+    max_tokens: int = typer.Option(1600, min=128, max=32000),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Run the collect -> validate -> K-LIB context -> model research pipeline."""
+
+    def action() -> None:
+        report = medchem_store(library).research_agent(
+            question,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            pubchem_identifiers=pubchem or [],
+            pubchem_namespace=pubchem_namespace,
+            synonyms_limit=synonyms_limit,
+            options={"max_tokens": max_tokens},
+        )
+        if output:
+            destination = output.expanduser().resolve()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            emit({"output": str(destination), "ready_for_review": report["ready_for_review"]})
+        else:
+            emit(report)
+
+    run_command(action)
+
+
+@medchem_app.command("evidence-evals")
+def medchem_evidence_evals(
+    library: str | None = typer.Option(None, "--library", "-l"),
+) -> None:
+    """Run link, citation, grounding, and safety regression checks."""
+
+    run_command(lambda: emit(medchem_store(library).run_evidence_evals()))
+
+
+@medchem_app.command("safety-check")
+def medchem_safety_check(request: str) -> None:
+    """Check whether a request is inside the research-only MedChem boundary."""
+
+    emit(safety_check(request))
 
 
 @glossary_app.command("add")

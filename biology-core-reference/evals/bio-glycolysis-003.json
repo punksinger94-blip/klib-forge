@@ -1,0 +1,23 @@
+{
+  "id": "bio-glycolysis-003",
+  "name": "Glycolysis net yield",
+  "task": "grounded_biology",
+  "input": "What does glycolysis net per glucose in terms of ATP, NADH, and pyruvate? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "2 ATP",
+        "two ATP"
+      ],
+      [
+        "2 NADH",
+        "two NADH"
+      ],
+      [
+        "2 pyruvate",
+        "two pyruvate"
+      ]
+    ],
+    "citation_required": true
+  }
+}

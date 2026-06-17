@@ -1,0 +1,33 @@
+{
+  "id": "biology-core-reference",
+  "name": "Core Biology Reference",
+  "version": "0.2.0",
+  "description": "A multi-document biology reference combining public textbook knowledge with a clearly labeled fictional internal assay. It demonstrates both grounded scientific recall and retrieval of private, organization-specific procedures that a base model cannot know.",
+  "domain": "biology/general",
+  "languages": [
+    "en"
+  ],
+  "license": "CC-BY-4.0",
+  "klib_format_version": "0.1",
+  "default_mode": "grounded_biology",
+  "supported_tasks": [
+    "grounded_biology",
+    "internal_protocol_recall",
+    "general_knowledge_control"
+  ],
+  "retrieval_policy": {
+    "top_k": 5,
+    "use_hybrid_search": false,
+    "require_citations": true,
+    "vector_adapter": "local",
+    "qdrant_url": "http://localhost:6333",
+    "qdrant_collection": ""
+  },
+  "model_policy": {
+    "default_provider": "ollama",
+    "default_model": "gemma4:e4b",
+    "allow_online_models": false
+  },
+  "created_at": "2026-06-15T12:00:00+00:00",
+  "updated_at": "2026-06-15T14:17:45.054417+00:00"
+}

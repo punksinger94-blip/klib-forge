@@ -12,3 +12,13 @@ The authoritative dependency versions are:
 - `apps/desktop/src-tauri/Cargo.lock`
 
 Review those files and the release SBOMs for the exact dependency set.
+
+## Optional MedChem dependencies
+
+The `medchem` Python extra uses RDKit under the BSD 3-Clause license. RDKit is
+not installed by the default K-LIB Forge dependency set.
+
+- RDKit: https://www.rdkit.org/
+- License: https://github.com/rdkit/rdkit/blob/master/license.txt
+
+The exact optional dependency constraint is declared in `pyproject.toml`.

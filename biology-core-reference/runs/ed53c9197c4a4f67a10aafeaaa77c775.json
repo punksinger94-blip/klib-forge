@@ -1,0 +1,81 @@
+{
+  "id": "ed53c9197c4a4f67a10aafeaaa77c775",
+  "provider": "ollama",
+  "model": "gemma4:e4b",
+  "input": "Under the fictional internal Aster-9 assay, what ratio is a valid positive response and at what minute, and which early ratio and temperature thresholds require aborting the run? Cite the source.",
+  "output": "In the fictional controlled Aster-9 assay, a valid positive response is defined as a normalized 472-nm ratio of at least 1.35 at minute 11 after the second Vela-B wash [2].\n\nThe run must be aborted if either of these conditions occurs:\n*   The chamber temperature exceeds 34.2 degrees Celsius [2].\n*   The normalized 472-nm ratio exceeds 2.10 before minute 4 [2].",
+  "retrieved_context": [
+    {
+      "chunk_id": "22d8d39749235cf997d648ecef0e852b:0",
+      "source_id": "22d8d39749235cf997d648ecef0e852b",
+      "source_title": "10-aster-9-internal-assay.md",
+      "text": "# Aster-9 Internal Hypoxia Reporter Assay\n\n> Controlled demonstration document. Aster-9, Lumen-R7, and Vela-B are\n> fictional names created for K-LIB evaluation. This is not a real laboratory\n> or clinical protocol and must not be used for biological work.\n\n## Culture eligibility\n\nUse an Aster-9 reporter culture only between passages 6 and 11 inclusive and\nonly when confluence is between 72% and 78%. Record the passage and confluence\nbefore adding the reporter reagent.\n\n## Reporter priming\n\nAdd 7.5 microliters of Lumen-R7 to each 2.0 milliliters of culture medium.\nIncubate for 14 minutes at 33 degrees Celsius before beginning the hypoxia\npulse.\n\n## Hypoxia pulse\n\nExpose the primed culture to 1.7% oxygen for 42 minutes at 33 degrees Celsius\nwhile maintaining 5% carbon dioxide. The 42-minute timer starts only after the\nchamber reaches 1.7% oxygen.\n\n## Vela-B wash\n\nVela-B contains 18 mM HEPES, 135 mM sodium chloride, and 4.5 mM potassium\nchloride, adjusted to pH 7.28. Perform exactly two washes using 3.0 milliliters\nper wash and a contact time of 20 seconds per wash.\n\n## Reporter readout\n\nExcite the reporter at 405 nm and measure emission at 472 nm. A valid positive\nresponse is a",
+      "score": 179.94089,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 48,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "22d8d39749235cf997d648ecef0e852b:1",
+      "source_id": "22d8d39749235cf997d648ecef0e852b",
+      "source_title": "10-aster-9-internal-assay.md",
+      "text": "0 milliliters\nper wash and a contact time of 20 seconds per wash.\n\n## Reporter readout\n\nExcite the reporter at 405 nm and measure emission at 472 nm. A valid positive\nresponse is a normalized 472-nm ratio of at least 1.35 at minute 11 after the\nsecond Vela-B wash.\n\nAbort the run if either condition occurs:\n\n1. Chamber temperature exceeds 34.2 degrees Celsius.\n2. The normalized 472-nm ratio exceeds 2.10 before minute 4.\n\nAn aborted run must not be repeated using the same culture.\n\n## Recovery sequence\n\nAfter a valid readout, recover the culture for 6 minutes in ambient oxygen,\nthen for 9 minutes at 5% carbon dioxide and 33 degrees Celsius. The order must\nnot be reversed.",
+      "score": 175.738389,
+      "metadata": {
+        "chunk_index": 1,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 48,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "591df251ee3c58e9be1ecb1b14bf5e17:0",
+      "source_id": "591df251ee3c58e9be1ecb1b14bf5e17",
+      "source_title": "06-enzymes-kinetics.md",
+      "text": "# Enzymes and Enzyme Kinetics\n\nEnzymes are biological catalysts (mostly proteins) that speed reactions by lowering the\nactivation energy. They are not consumed and do not change the reaction equilibrium.\n\n## Mechanism\n\nThe substrate binds the enzyme's active site. The induced-fit model holds that the\nactive site changes shape slightly to fit the substrate, forming an enzyme-substrate\ncomplex. Enzymes are specific and are sensitive to temperature and pH, each having an\noptimum. Cofactors (inorganic ions) and coenzymes (organic molecules such as vitamins)\nassist catalysis.\n\n## Michaelis-Menten kinetics\n\nFor many enzymes the initial reaction velocity relates to substrate concentration by:\n\nv0 = (Vmax * [S]) / (Km + [S])\n\n- Vmax is the maximum velocity, approached when the enzyme is saturated with substrate.\n- Km, the Michaelis constant, equals the substrate concentration at which the reaction\n rate is half of Vmax. A low Km indicates high affinity of the enzyme for its\n substrate; a high Km indicates low affinity.\n\n## Inhibition\n\n- Competitive inhibitors resemble the substrate and bind the active site; they raise the\n apparent Km but leave Vmax unchanged, and their effect can be",
+      "score": 50.496633,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 34,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "23239211ce385e439502a44e3f64d460:0",
+      "source_id": "23239211ce385e439502a44e3f64d460",
+      "source_title": "09-signaling-neurophysiology.md",
+      "text": "# Cell Signaling and Neurophysiology\n\n## Cell signaling\n\nCells communicate through signal transduction: a signaling molecule (ligand) binds a\nreceptor, triggering a response. Receptors include cell-surface receptors (G\nprotein-coupled receptors, receptor tyrosine kinases, ligand-gated ion channels) and\nintracellular receptors for hydrophobic signals such as steroid hormones. Many pathways\nuse second messengers (such as cyclic AMP or calcium ions) and phosphorylation cascades\nto amplify the signal.\n\n## The neuron and the membrane potential\n\nNeurons maintain a resting membrane potential, the inside being negative relative to the\noutside, typically about -70 millivolts (mV). This is set by the unequal distribution of\nions (high K+ inside, high Na+ outside), the membrane's higher permeability to K+ at\nrest, and the sodium-potassium pump (3 Na+ out, 2 K+ in per ATP).\n\n## The action potential\n\nA stimulus that depolarizes the membrane to threshold (about -55 mV) triggers an action\npotential, an all-or-none event:\n\n1. Depolarization: voltage-gated sodium channels open; Na+ rushes in; the inside becomes\n positive (peaks near +30 to +40 mV).\n2. Repolarization: sodium channels inactivate and",
+      "score": 41.086326,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 33,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "528478c1a128549e88300e0b18fa9b6f:0",
+      "source_id": "528478c1a128549e88300e0b18fa9b6f",
+      "source_title": "05-genetics.md",
+      "text": "# Classical and Molecular Genetics\n\nGregor Mendel established the principles of inheritance using pea plants.\n\n## Key terms\n\n- Gene: a unit of heredity; allele: an alternative version of a gene.\n- Genotype: the genetic makeup; phenotype: the observable trait.\n- Homozygous: two identical alleles; heterozygous: two different alleles.\n- Dominant alleles mask recessive alleles in heterozygotes.\n\n## Mendel's laws\n\n- Law of segregation: the two alleles of a gene separate during gamete formation, so each\n gamete carries one allele.\n- Law of independent assortment: alleles of different genes assort independently during\n gamete formation (for genes on different chromosomes).\n\nA monohybrid cross of two heterozygotes (Aa x Aa) gives a genotypic ratio of 1:2:1 and a\nphenotypic ratio of 3:1 dominant to recessive. A test cross with a homozygous recessive\nreveals an unknown genotype.\n\n## Beyond simple dominance\n\n- Incomplete dominance: heterozygote shows a blended/intermediate phenotype.\n- Codominance: both alleles fully expressed (for example, AB blood type).\n- Multiple alleles: more than two alleles in a population (ABO blood groups).\n- Polygenic inheritance: many genes affect one trait",
+      "score": 39.427774,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 32,
+        "risk_score": 0
+      }
+    }
+  ],
+  "latency_ms": 13095,
+  "created_at": "2026-06-15T14:17:10.018528+00:00"
+}

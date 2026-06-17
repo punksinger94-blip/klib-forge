@@ -1,0 +1,114 @@
+{
+  "id": "1781532292819826300",
+  "created_at": "2026-06-15T14:04:52.819826+00:00",
+  "version": "0.2.0",
+  "sources": {
+    "856f9253780851c1a51dd524f08c5cf4": {
+      "title": "01-cell-biology.md",
+      "path": "sources\\01-cell-biology.md"
+    },
+    "b43d5f7b183e567d921315b5cd1b61d7": {
+      "title": "02-membrane-transport.md",
+      "path": "sources\\02-membrane-transport.md"
+    },
+    "eb1d2b5f7433544cb40c13e1e54b6f2f": {
+      "title": "03-bioenergetics.md",
+      "path": "sources\\03-bioenergetics.md"
+    },
+    "432d92493ce45aa8b854c27daf2590c4": {
+      "title": "04-central-dogma.md",
+      "path": "sources\\04-central-dogma.md"
+    },
+    "528478c1a128549e88300e0b18fa9b6f": {
+      "title": "05-genetics.md",
+      "path": "sources\\05-genetics.md"
+    },
+    "591df251ee3c58e9be1ecb1b14bf5e17": {
+      "title": "06-enzymes-kinetics.md",
+      "path": "sources\\06-enzymes-kinetics.md"
+    },
+    "9fa3f4064b4e5a288255065d6bcb4eb7": {
+      "title": "07-cell-cycle-meiosis.md",
+      "path": "sources\\07-cell-cycle-meiosis.md"
+    },
+    "cf6bd0ae221c5ea992a0a670b078ea8b": {
+      "title": "08-photosynthesis.md",
+      "path": "sources\\08-photosynthesis.md"
+    },
+    "23239211ce385e439502a44e3f64d460": {
+      "title": "09-signaling-neurophysiology.md",
+      "path": "sources\\09-signaling-neurophysiology.md"
+    },
+    "22d8d39749235cf997d648ecef0e852b": {
+      "title": "10-aster-9-internal-assay.md",
+      "path": "sources\\10-aster-9-internal-assay.md"
+    }
+  },
+  "glossary": {
+    "Prokaryote": "A cell lacking a membrane-bound nucleus and organelles (bacteria, archaea).",
+    "Eukaryote": "A cell with a membrane-bound nucleus and organelles.",
+    "Mitochondrion": "Double-membraned organelle that carries out aerobic respiration and produces most ATP.",
+    "Fluid mosaic model": "Model of the membrane as a phospholipid bilayer with embedded proteins, cholesterol, and carbohydrates.",
+    "Osmosis": "Diffusion of water across a selectively permeable membrane toward higher solute concentration.",
+    "Sodium-potassium pump": "Primary active transporter pumping 3 Na+ out and 2 K+ in per ATP.",
+    "ATP": "Adenosine triphosphate, the cell's main energy currency.",
+    "Glycolysis": "Cytosolic splitting of glucose into 2 pyruvate, net 2 ATP and 2 NADH.",
+    "Citric acid cycle": "Mitochondrial cycle producing 3 NADH, 1 FADH2, 1 GTP, and 2 CO2 per turn.",
+    "Oxidative phosphorylation": "ATP synthesis on the inner mitochondrial membrane driven by an electron transport chain and chemiosmosis; oxygen is the final electron acceptor.",
+    "Codon": "A three-nucleotide unit of mRNA specifying an amino acid or stop signal; 64 exist.",
+    "Start codon": "AUG, which codes for methionine and sets the reading frame.",
+    "Stop codons": "UAA, UAG, and UGA, which terminate translation.",
+    "Semiconservative replication": "DNA replication in which each daughter helix keeps one parental strand.",
+    "Okazaki fragments": "Short DNA segments synthesized on the lagging strand, later joined by ligase.",
+    "Law of segregation": "Mendel's principle that the two alleles of a gene separate into different gametes.",
+    "Km (Michaelis constant)": "The substrate concentration at which reaction velocity is half of Vmax; inversely related to affinity.",
+    "Competitive inhibitor": "An inhibitor that binds the active site, raising apparent Km without changing Vmax.",
+    "Mitosis": "Division producing two identical diploid cells via prophase, metaphase, anaphase, telophase.",
+    "Meiosis": "Two divisions producing four genetically varied haploid gametes.",
+    "RuBisCO": "Enzyme that fixes CO2 onto RuBP in the Calvin cycle (stroma).",
+    "Calvin cycle": "Light-independent reactions in the stroma that fix carbon into G3P using ATP and NADPH.",
+    "Resting membrane potential": "The neuron's resting voltage, about -70 mV, inside negative relative to outside.",
+    "Action potential": "An all-or-none depolarization-repolarization event triggered at threshold (about -55 mV).",
+    "Second messenger": "An intracellular signaling molecule (e.g., cyclic AMP, Ca2+) that amplifies a signal.",
+    "Aster-9": "A fictional reporter culture used only for the controlled private-knowledge K-LIB demonstration.",
+    "Lumen-R7": "The fictional Aster-9 reporter reagent, dosed at 7.5 microliters per 2.0 milliliters of medium.",
+    "Vela-B": "The fictional Aster-9 wash buffer adjusted to pH 7.28.",
+    "Aster-9 positive response": "A normalized 472-nm ratio of at least 1.35 at minute 11 after the second Vela-B wash.",
+    "Aster-9 abort condition": "Abort above 34.2 degrees Celsius or when the normalized 472-nm ratio exceeds 2.10 before minute 4."
+  },
+  "rules": {
+    "f25fe8d2c1044c468003a2a1cf7a91f1": "Use the exact value, stoichiometry, term, or sequence given in the retrieved biology documents. Do not approximate or rely on memory when the evidence states a precise figure.",
+    "4b2ac3adffda4e14bebcced3159677cf": "Cite the specific source document that supports each factual claim.",
+    "e23deed99c2d4f04b87ac3744de77228": "Report exact names (codons, enzymes, phases) and exact counts (ions, ATP, NADH, CO2). Keep coefficients and directions correct.",
+    "8989417aa0e745b7ad64666e53534f8a": "Distinguish per-turn versus per-glucose yields, prokaryotic versus eukaryotic cells, meiosis I versus II, and similar levels. Do not conflate them.",
+    "20a781b4ae9949efb3e8c0630487acc2": "If a mechanism, value, or term is not present in the retrieved evidence, say so rather than inventing it.",
+    "40a781b4ae9949efb3e8c0630487acc3": "When answering about Aster-9, explicitly describe it as a fictional controlled demonstration protocol. Use only the retrieved internal document and do not generalize its values to real laboratory work."
+  },
+  "evals": {
+    "bio-base-pairing-009": "DNA base pairing and hydrogen bonds",
+    "bio-calvin-019": "Calvin cycle enzyme and location",
+    "bio-codon-count-008": "Total number of codons",
+    "bio-control-021": "General knowledge control",
+    "bio-etc-005": "Oxidative phosphorylation location and final acceptor",
+    "bio-glycolysis-003": "Glycolysis net yield",
+    "bio-inhibition-015": "Competitive inhibition effect",
+    "bio-internal-priming-022": "Recover the private Aster-9 priming conditions",
+    "bio-internal-pulse-wash-023": "Recover the private pulse and wash specification",
+    "bio-internal-recovery-025": "Recover the private ordered recovery sequence",
+    "bio-internal-thresholds-024": "Recover private readout and abort thresholds",
+    "bio-km-014": "Definition of Km",
+    "bio-krebs-004": "Citric acid cycle per-turn products",
+    "bio-meiosis-017": "Meiosis output",
+    "bio-membrane-potential-020": "Resting membrane potential",
+    "bio-mendel-013": "Monohybrid phenotypic ratio and law",
+    "bio-mitosis-016": "Phases of mitosis in order",
+    "bio-nak-pump-002": "Sodium-potassium pump stoichiometry",
+    "bio-organelle-001": "Mitochondrion function",
+    "bio-photosynthesis-018": "Light reactions location and products",
+    "bio-replication-010": "Semiconservative replication and lagging strand",
+    "bio-rna-processing-012": "Eukaryotic mRNA processing",
+    "bio-start-codon-007": "Start codon and its amino acid",
+    "bio-stop-codons-006": "The three stop codons",
+    "bio-transcription-011": "Transcription enzyme and product"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "bio-organelle-001",
+  "name": "Mitochondrion function",
+  "task": "grounded_biology",
+  "input": "Which organelle is the main site of ATP production by aerobic respiration, and what membrane feature increases its surface area? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "mitochondri"
+      ],
+      [
+        "cristae"
+      ]
+    ],
+    "citation_required": true
+  }
+}

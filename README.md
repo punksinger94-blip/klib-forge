@@ -28,6 +28,7 @@ install a package with `klib install-example EXAMPLE_ID`.
 - Reviewed corrections that create regression evals
 - Multi-model Eval Arena and Knowledge Diff snapshots
 - Prompt-injection scanning and per-source trust levels
+- Optional MedChem alpha with RDKit validation, descriptors, scaffolds, and similarity
 - Package editors, model profiles, import/export, run history, and prompt inspection
 - Stable Python SDK and MCP stdio server
 - Safe ZIP-based `.klib` import and export
@@ -175,6 +176,10 @@ batch APIs are outside this connector surface.
 - [Getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [SDK and MCP](docs/sdk-and-mcp.md)
+- [Hermes Agent integration](docs/hermes-agent.md)
+- [Biology private-knowledge demo](docs/biology-private-knowledge-demo.md)
+- [MedChem-KLIB Lite](docs/medchem-lite.md)
+- [Private Anthropic knowledge collection](docs/anthropic-knowledge-collection.md)
 - [Known limitations](docs/known-limitations.md)
 - [Release process](docs/release.md)
 - [1.0.0 release qualification](docs/release-qualification-1.0.0.md)

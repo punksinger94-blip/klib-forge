@@ -1,0 +1,20 @@
+{
+  "id": "bio-etc-005",
+  "name": "Oxidative phosphorylation location and final acceptor",
+  "task": "grounded_biology",
+  "input": "Where does oxidative phosphorylation occur, and what is the final electron acceptor? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "inner mitochondrial membrane",
+        "inner membrane"
+      ],
+      [
+        "oxygen",
+        "O2",
+        "O₂"
+      ]
+    ],
+    "citation_required": true
+  }
+}

@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import importlib.util
 import json
 import sqlite3
 import stat
@@ -17,6 +16,14 @@ from klib_core.files import chunk_text
 from klib_core.mcp_server import _handle_line
 from klib_core.providers import OpenAICompatibleProvider
 from klib_core.vectors import ChromaVectorIndex, LocalVectorIndex, QdrantVectorIndex
+
+
+def load_script_module(path: str):
+    spec = importlib.util.spec_from_file_location("script_under_test", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_export_import_preserves_sources_and_rebuilds_indexes(tmp_path: Path) -> None:
@@ -37,6 +44,57 @@ def test_export_import_preserves_sources_and_rebuilds_indexes(tmp_path: Path) ->
     compile_result = ForgeEngine(imported_manager).compile("portable")
     assert compile_result.sources == 1
     assert ForgeEngine(imported_manager).search("portable", "searchable evidence")
+
+
+def test_preview_registry_lists_flagship_and_demo_packages() -> None:
+    registry = json.loads(Path("examples/registry.json").read_text(encoding="utf-8"))
+    assert registry["registry_version"] == "registry-preview.1"
+    packages = {item["id"]: item for item in registry["packages"]}
+    assert packages["medchem-lite"]["knowledge_ir_version"] == "medchem-ir-preview.1"
+    assert packages["medchem-lite"]["validator_profile"] == "rdkit-medchem-preview"
+    assert packages["biology-core-reference"]["hermes_mcp"] == "klib_forge"
+
+
+def test_medchem_hermes_discovery_extracts_klib_import_plan() -> None:
+    module = load_script_module("scripts/run-medchem-hermes-internet-klib.py")
+    output = """
+BEGIN_MEDCHEM_DISCOVERY_JSON
+{
+  "compound_query": "Advil",
+  "active_compound_names": ["ibuprofen", "Advil (brand)", "Motrin (brand)"],
+  "pubchem": {"cids": ["3672"], "urls": ["https://pubchem.ncbi.nlm.nih.gov/compound/3672"]},
+  "chembl": {"ids": [], "urls": []},
+  "source_urls": ["https://pubchem.ncbi.nlm.nih.gov/compound/3672"],
+  "candidate_targets": [],
+  "candidate_bioactivity": [],
+  "literature_notes": [],
+  "license_notes": [],
+  "uncertainty": [],
+  "recommended_klib_imports": ["ibuprofen", "Nurofen (brand)", "PubChem CID 3672"]
+}
+END_MEDCHEM_DISCOVERY_JSON
+"""
+    parsed = module.parse_discovery_json(output)
+    assert parsed["active_compound_names"] == ["ibuprofen", "Advil (brand)", "Motrin (brand)"]
+    identifiers = module.pubchem_identifiers("Advil", {"parsed": parsed})
+    assert identifiers == ["ibuprofen", "Advil", "Motrin", "Nurofen"]
+    assert module.clean_pubchem_identifier("Brufen (brand)") == "Brufen"
+    assert module.resolve_base_url("b-ai", None) == "https://api.b.ai/v1"
+    assert module.resolve_api_key_env("b-ai", None) == "BAI_API_KEY"
+    assert module.messages_to_prompt(
+        [
+            {"role": "system", "content": "Use only K-LIB."},
+            {"role": "user", "content": "Summarize Advil."},
+        ]
+    ) == "SYSTEM:\nUse only K-LIB.\n\nUSER:\nSummarize Advil."
+
+
+def test_desktop_csp_allows_local_medchem_structure_images() -> None:
+    config = json.loads(Path("apps/desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    csp = config["app"]["security"]["csp"]
+    assert "img-src" in csp
+    assert "http://127.0.0.1:*" in csp
+    assert "http://localhost:*" in csp
 
 
 def test_import_restores_nested_sources_with_duplicate_filenames(tmp_path: Path) -> None:

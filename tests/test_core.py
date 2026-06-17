@@ -310,6 +310,18 @@ def test_nvidia_provider_uses_official_endpoint_and_environment_key(monkeypatch)
     assert provider.api_key == "test-nvidia-secret"
 
 
+def test_b_ai_provider_uses_openai_compatible_endpoint(monkeypatch) -> None:
+    monkeypatch.delenv("BAI_API_KEY", raising=False)
+    with pytest.raises(ModelProviderError):
+        get_provider("b-ai")
+
+    monkeypatch.setenv("BAI_API_KEY", "test-bai-secret")
+    provider = get_provider("b-ai")
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider.base_url == "https://api.b.ai/v1"
+    assert provider.api_key == "test-bai-secret"
+
+
 def test_openai_compatible_provider_retries_transient_status(monkeypatch) -> None:
     request = httpx.Request("POST", "https://example.test/v1/chat/completions")
     responses = [

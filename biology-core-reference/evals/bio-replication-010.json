@@ -1,0 +1,17 @@
+{
+  "id": "bio-replication-010",
+  "name": "Semiconservative replication and lagging strand",
+  "task": "grounded_biology",
+  "input": "Is DNA replication conservative or semiconservative, and what are the short fragments on the lagging strand called? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "semiconservative"
+      ],
+      [
+        "Okazaki"
+      ]
+    ],
+    "citation_required": true
+  }
+}

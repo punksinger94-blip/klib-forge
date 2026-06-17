@@ -69,6 +69,9 @@ PROVIDER_SPECS = (
         "NVIDIA_API_KEY",
     ),
     ProviderSpec(
+        "b-ai", "B.AI", "openai", "https://api.b.ai/v1", "BAI_API_KEY",
+    ),
+    ProviderSpec(
         "gemini", "Google Gemini", "openai",
         "https://generativelanguage.googleapis.com/v1beta/openai", "GEMINI_API_KEY",
     ),

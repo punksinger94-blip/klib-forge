@@ -1,0 +1,18 @@
+{
+  "id": "bio-meiosis-017",
+  "name": "Meiosis output",
+  "task": "grounded_biology",
+  "input": "How many daughter cells does meiosis produce from one parent cell, and are they haploid or diploid? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "four",
+        "4"
+      ],
+      [
+        "haploid"
+      ]
+    ],
+    "citation_required": true
+  }
+}

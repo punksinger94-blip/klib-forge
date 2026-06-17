@@ -1,0 +1,32 @@
+{
+  "library_id": "biology-core-reference",
+  "version": "0.2.0",
+  "compiled_at": "2026-06-15T14:17:45.036418+00:00",
+  "source_count": 10,
+  "chunk_count": 21,
+  "keywords": [
+    "atp",
+    "two",
+    "cell",
+    "cycle",
+    "dna",
+    "membrane",
+    "co2",
+    "per",
+    "alleles",
+    "each",
+    "energy",
+    "glucose",
+    "one",
+    "transport",
+    "active",
+    "cells",
+    "meiosis",
+    "substrate",
+    "carbon",
+    "ions"
+  ],
+  "retrieval_engine": "local-tfidf",
+  "vector_adapter": "local",
+  "hybrid_search": false
+}

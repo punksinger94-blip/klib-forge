@@ -1,0 +1,6 @@
+compound_id,name,smiles,synonyms,source_refs,status
+CMPD_000001,Aspirin,CC(=O)Oc1ccccc1C(=O)O,acetylsalicylic acid,example_reference,research_reference_only
+CMPD_000002,Salicylic acid,O=C(O)c1ccccc1O,2-hydroxybenzoic acid,example_reference,research_reference_only
+CMPD_000003,Acetaminophen,CC(=O)NC1=CC=C(O)C=C1,paracetamol,example_reference,research_reference_only
+CMPD_000004,Caffeine,Cn1c(=O)c2c(ncn2C)n(C)c1=O,1 3 7-trimethylxanthine,example_reference,research_reference_only
+CMPD_000005,Invalid example,C1(CC,deliberately invalid,example_validation,research_reference_only

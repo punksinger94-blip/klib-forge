@@ -1,0 +1,18 @@
+{
+  "id": "bio-transcription-011",
+  "name": "Transcription enzyme and product",
+  "task": "grounded_biology",
+  "input": "Which enzyme carries out transcription, and what molecule does it produce? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "RNA polymerase"
+      ],
+      [
+        "mRNA",
+        "messenger RNA"
+      ]
+    ],
+    "citation_required": true
+  }
+}

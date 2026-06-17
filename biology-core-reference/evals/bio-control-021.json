@@ -1,0 +1,13 @@
+{
+  "id": "bio-control-021",
+  "name": "General knowledge control",
+  "task": "general_knowledge_control",
+  "input": "Control problem (does not use the biology documents): what is 12 multiplied by 12? State the number.",
+  "checks": {
+    "must_include_any": [
+      [
+        "144"
+      ]
+    ]
+  }
+}

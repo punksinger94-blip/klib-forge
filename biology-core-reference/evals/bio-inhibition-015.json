@@ -1,0 +1,19 @@
+{
+  "id": "bio-inhibition-015",
+  "name": "Competitive inhibition effect",
+  "task": "grounded_biology",
+  "input": "Where does a competitive inhibitor bind, and is Vmax changed or unchanged? Cite the source.",
+  "checks": {
+    "must_include_any": [
+      [
+        "active site"
+      ],
+      [
+        "unchanged",
+        "not changed",
+        "same"
+      ]
+    ],
+    "citation_required": true
+  }
+}

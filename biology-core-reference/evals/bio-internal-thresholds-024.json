@@ -1,0 +1,16 @@
+{
+  "id": "bio-internal-thresholds-024",
+  "name": "Recover private readout and abort thresholds",
+  "task": "internal_protocol_recall",
+  "input": "Under the fictional internal Aster-9 assay, what ratio is a valid positive response and at what minute, and which early ratio and temperature thresholds require aborting the run? Cite the source.",
+  "checks": {
+    "must_include": [
+      "1.35",
+      "11",
+      "2.10",
+      "4",
+      "34.2"
+    ],
+    "citation_required": true
+  }
+}

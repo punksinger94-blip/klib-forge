@@ -1,0 +1,81 @@
+{
+  "id": "195bec793ef34b08b3e0a1fdffb7d2b6",
+  "provider": "ollama",
+  "model": "gemma4:e4b",
+  "input": "In the fictional internal Aster-9 assay, what Lumen-R7 dose, medium volume, incubation time, and temperature are used for reporter priming? Cite the source.",
+  "output": "For reporter priming in the fictional internal Aster-9 assay, the following parameters are used:\n*   **Lumen-R7 Dose:** 7.5 microliters of Lumen-R7 must be added to each 2.0 milliliters of culture medium [1].\n*   **Incubation Time and Temperature:** The mixture must then be incubated for 14 minutes at 33 degrees Celsius before starting the hypoxia pulse [1].\n\nSource: [1]",
+  "retrieved_context": [
+    {
+      "chunk_id": "22d8d39749235cf997d648ecef0e852b:0",
+      "source_id": "22d8d39749235cf997d648ecef0e852b",
+      "source_title": "10-aster-9-internal-assay.md",
+      "text": "# Aster-9 Internal Hypoxia Reporter Assay\n\n> Controlled demonstration document. Aster-9, Lumen-R7, and Vela-B are\n> fictional names created for K-LIB evaluation. This is not a real laboratory\n> or clinical protocol and must not be used for biological work.\n\n## Culture eligibility\n\nUse an Aster-9 reporter culture only between passages 6 and 11 inclusive and\nonly when confluence is between 72% and 78%. Record the passage and confluence\nbefore adding the reporter reagent.\n\n## Reporter priming\n\nAdd 7.5 microliters of Lumen-R7 to each 2.0 milliliters of culture medium.\nIncubate for 14 minutes at 33 degrees Celsius before beginning the hypoxia\npulse.\n\n## Hypoxia pulse\n\nExpose the primed culture to 1.7% oxygen for 42 minutes at 33 degrees Celsius\nwhile maintaining 5% carbon dioxide. The 42-minute timer starts only after the\nchamber reaches 1.7% oxygen.\n\n## Vela-B wash\n\nVela-B contains 18 mM HEPES, 135 mM sodium chloride, and 4.5 mM potassium\nchloride, adjusted to pH 7.28. Perform exactly two washes using 3.0 milliliters\nper wash and a contact time of 20 seconds per wash.\n\n## Reporter readout\n\nExcite the reporter at 405 nm and measure emission at 472 nm. A valid positive\nresponse is a",
+      "score": 311.581927,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 48,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "22d8d39749235cf997d648ecef0e852b:1",
+      "source_id": "22d8d39749235cf997d648ecef0e852b",
+      "source_title": "10-aster-9-internal-assay.md",
+      "text": "0 milliliters\nper wash and a contact time of 20 seconds per wash.\n\n## Reporter readout\n\nExcite the reporter at 405 nm and measure emission at 472 nm. A valid positive\nresponse is a normalized 472-nm ratio of at least 1.35 at minute 11 after the\nsecond Vela-B wash.\n\nAbort the run if either condition occurs:\n\n1. Chamber temperature exceeds 34.2 degrees Celsius.\n2. The normalized 472-nm ratio exceeds 2.10 before minute 4.\n\nAn aborted run must not be repeated using the same culture.\n\n## Recovery sequence\n\nAfter a valid readout, recover the culture for 6 minutes in ambient oxygen,\nthen for 9 minutes at 5% carbon dioxide and 33 degrees Celsius. The order must\nnot be reversed.",
+      "score": 60.922162,
+      "metadata": {
+        "chunk_index": 1,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 48,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "591df251ee3c58e9be1ecb1b14bf5e17:0",
+      "source_id": "591df251ee3c58e9be1ecb1b14bf5e17",
+      "source_title": "06-enzymes-kinetics.md",
+      "text": "# Enzymes and Enzyme Kinetics\n\nEnzymes are biological catalysts (mostly proteins) that speed reactions by lowering the\nactivation energy. They are not consumed and do not change the reaction equilibrium.\n\n## Mechanism\n\nThe substrate binds the enzyme's active site. The induced-fit model holds that the\nactive site changes shape slightly to fit the substrate, forming an enzyme-substrate\ncomplex. Enzymes are specific and are sensitive to temperature and pH, each having an\noptimum. Cofactors (inorganic ions) and coenzymes (organic molecules such as vitamins)\nassist catalysis.\n\n## Michaelis-Menten kinetics\n\nFor many enzymes the initial reaction velocity relates to substrate concentration by:\n\nv0 = (Vmax * [S]) / (Km + [S])\n\n- Vmax is the maximum velocity, approached when the enzyme is saturated with substrate.\n- Km, the Michaelis constant, equals the substrate concentration at which the reaction\n rate is half of Vmax. A low Km indicates high affinity of the enzyme for its\n substrate; a high Km indicates low affinity.\n\n## Inhibition\n\n- Competitive inhibitors resemble the substrate and bind the active site; they raise the\n apparent Km but leave Vmax unchanged, and their effect can be",
+      "score": 40.363285,
+      "metadata": {
+        "chunk_index": 0,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 34,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "432d92493ce45aa8b854c27daf2590c4:1",
+      "source_id": "432d92493ce45aa8b854c27daf2590c4",
+      "source_title": "04-central-dogma.md",
+      "text": "racil (U) in place of thymine. In eukaryotes the\nprimary transcript is processed: a 5' cap is added, a poly-A tail is added to the 3'\nend, and introns are removed by splicing while exons are joined.\n\n## Translation and the genetic code\n\nRibosomes read mRNA in three-base units called codons. There are 64 possible codons; 61\nspecify amino acids and 3 are stop codons. The genetic code is degenerate (redundant):\nseveral codons can specify the same amino acid. The start codon is AUG, which codes for\nmethionine and sets the reading frame. The three stop codons are UAA, UAG, and UGA;\nthey specify no amino acid and signal the ribosome to terminate. Transfer RNA (tRNA)\nmolecules carry amino acids and pair their anticodons to mRNA codons.\n\n## Mutations\n\nPoint mutations include silent (no amino-acid change), missense (one amino acid\nchanged), and nonsense (creates a premature stop codon). Insertions or deletions not in\nmultiples of three cause frameshift mutations that alter all downstream codons.",
+      "score": 31.454535,
+      "metadata": {
+        "chunk_index": 1,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 41,
+        "risk_score": 0
+      }
+    },
+    {
+      "chunk_id": "eb1d2b5f7433544cb40c13e1e54b6f2f:1",
+      "source_id": "eb1d2b5f7433544cb40c13e1e54b6f2f",
+      "source_title": "03-bioenergetics.md",
+      "text": "strate-level phosphorylation, and releases 2 CO2. Because each glucose\nyields two acetyl-CoA, the cycle turns twice per glucose: 6 NADH, 2 FADH2, 2 GTP, and\n4 CO2.\n\n## 4. Oxidative phosphorylation (inner mitochondrial membrane)\n\nThe electron transport chain passes electrons from NADH and FADH2 through a series of\ncomplexes, pumping protons (H+) into the intermembrane space to build a proton-motive\nforce. ATP synthase then uses the proton gradient to make ATP (chemiosmosis). Oxygen is\nthe final electron acceptor, forming water. Using modern consensus values (about 2.5 ATP\nper NADH and 1.5 ATP per FADH2), complete aerobic oxidation of one glucose yields\nroughly 30 to 32 ATP. Older textbooks cite 36 to 38 ATP.\n\n## Anaerobic conditions\n\nWithout oxygen, fermentation regenerates NAD+ so glycolysis can continue. Lactic acid\nfermentation (in muscle) produces lactate; alcoholic fermentation (in yeast) produces\nethanol and CO2. Fermentation yields only the 2 net ATP from glycolysis.",
+      "score": 26.025166,
+      "metadata": {
+        "chunk_index": 1,
+        "source_type": "md",
+        "trust_level": "user_added",
+        "line_count": 42,
+        "risk_score": 0
+      }
+    }
+  ],
+  "latency_ms": 10814,
+  "created_at": "2026-06-15T14:16:10.173831+00:00"
+}

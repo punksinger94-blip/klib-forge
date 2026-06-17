@@ -1,0 +1,18 @@
+{
+  "id": "bio-km-014",
+  "name": "Definition of Km",
+  "task": "grounded_biology",
+  "input": "Define the Michaelis constant (Km) in terms of velocity. Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "half",
+        "one-half",
+        "1/2",
+        "50%",
+        "0.5"
+      ]
+    ],
+    "citation_required": true
+  }
+}

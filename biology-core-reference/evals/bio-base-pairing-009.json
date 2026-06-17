@@ -1,0 +1,31 @@
+{
+  "id": "bio-base-pairing-009",
+  "name": "DNA base pairing and hydrogen bonds",
+  "task": "grounded_biology",
+  "input": "In DNA, which bases pair together, and how many hydrogen bonds does the G-C pair form? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "adenine",
+        "A-T",
+        "A–T"
+      ],
+      [
+        "thymine"
+      ],
+      [
+        "guanine",
+        "G-C",
+        "G–C"
+      ],
+      [
+        "cytosine"
+      ],
+      [
+        "3 hydrogen",
+        "three hydrogen"
+      ]
+    ],
+    "citation_required": true
+  }
+}

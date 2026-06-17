@@ -1,0 +1,21 @@
+{
+  "id": "bio-internal-recovery-025",
+  "name": "Recover the private ordered recovery sequence",
+  "task": "internal_protocol_recall",
+  "input": "What is the ordered recovery sequence after a valid Aster-9 readout, including both durations and the second-stage atmosphere and temperature? Cite the source.",
+  "checks": {
+    "must_include": [
+      "6 minutes",
+      "9 minutes",
+      "5%",
+      "33"
+    ],
+    "must_include_any": [
+      [
+        "ambient oxygen",
+        "room air"
+      ]
+    ],
+    "citation_required": true
+  }
+}

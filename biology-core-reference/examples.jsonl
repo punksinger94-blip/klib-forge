@@ -1,0 +1,4 @@
+{"input": "How many ATP, NADH, and pyruvate does glycolysis net per glucose?", "output": "Per glucose, glycolysis nets 2 ATP, 2 NADH, and 2 pyruvate (it is in the cytosol and needs no oxygen) [03-bioenergetics]."}
+{"input": "What are the three stop codons?", "output": "The three stop codons are UAA, UAG, and UGA; they specify no amino acid and terminate translation [04-central-dogma]."}
+{"input": "List the phases of mitosis in order.", "output": "Prophase, metaphase, anaphase, then telophase, followed by cytokinesis [07-cell-cycle-meiosis]."}
+{"input": "What makes an Aster-9 reporter response positive?", "output": "In the fictional controlled Aster-9 assay, a valid positive response is a normalized 472-nm ratio of at least 1.35 at minute 11 after the second Vela-B wash [10-aster-9-internal-assay]."}

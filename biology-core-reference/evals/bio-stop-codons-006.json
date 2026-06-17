@@ -1,0 +1,14 @@
+{
+  "id": "bio-stop-codons-006",
+  "name": "The three stop codons",
+  "task": "grounded_biology",
+  "input": "Name the three stop codons of the standard genetic code. Cite.",
+  "checks": {
+    "must_include": [
+      "UAA",
+      "UAG",
+      "UGA"
+    ],
+    "citation_required": true
+  }
+}

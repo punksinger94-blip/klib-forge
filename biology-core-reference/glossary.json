@@ -1,0 +1,152 @@
+[
+    {
+        "source_term":  "Prokaryote",
+        "target_term":  "A cell lacking a membrane-bound nucleus and organelles (bacteria, archaea).",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Eukaryote",
+        "target_term":  "A cell with a membrane-bound nucleus and organelles.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Mitochondrion",
+        "target_term":  "Double-membraned organelle that carries out aerobic respiration and produces most ATP.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Fluid mosaic model",
+        "target_term":  "Model of the membrane as a phospholipid bilayer with embedded proteins, cholesterol, and carbohydrates.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Osmosis",
+        "target_term":  "Diffusion of water across a selectively permeable membrane toward higher solute concentration.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Sodium-potassium pump",
+        "target_term":  "Primary active transporter pumping 3 Na+ out and 2 K+ in per ATP.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "ATP",
+        "target_term":  "Adenosine triphosphate, the cell\u0027s main energy currency.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Glycolysis",
+        "target_term":  "Cytosolic splitting of glucose into 2 pyruvate, net 2 ATP and 2 NADH.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Citric acid cycle",
+        "target_term":  "Mitochondrial cycle producing 3 NADH, 1 FADH2, 1 GTP, and 2 CO2 per turn.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Oxidative phosphorylation",
+        "target_term":  "ATP synthesis on the inner mitochondrial membrane driven by an electron transport chain and chemiosmosis; oxygen is the final electron acceptor.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Codon",
+        "target_term":  "A three-nucleotide unit of mRNA specifying an amino acid or stop signal; 64 exist.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Start codon",
+        "target_term":  "AUG, which codes for methionine and sets the reading frame.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Stop codons",
+        "target_term":  "UAA, UAG, and UGA, which terminate translation.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Semiconservative replication",
+        "target_term":  "DNA replication in which each daughter helix keeps one parental strand.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Okazaki fragments",
+        "target_term":  "Short DNA segments synthesized on the lagging strand, later joined by ligase.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Law of segregation",
+        "target_term":  "Mendel\u0027s principle that the two alleles of a gene separate into different gametes.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Km (Michaelis constant)",
+        "target_term":  "The substrate concentration at which reaction velocity is half of Vmax; inversely related to affinity.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Competitive inhibitor",
+        "target_term":  "An inhibitor that binds the active site, raising apparent Km without changing Vmax.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Mitosis",
+        "target_term":  "Division producing two identical diploid cells via prophase, metaphase, anaphase, telophase.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Meiosis",
+        "target_term":  "Two divisions producing four genetically varied haploid gametes.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "RuBisCO",
+        "target_term":  "Enzyme that fixes CO2 onto RuBP in the Calvin cycle (stroma).",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Calvin cycle",
+        "target_term":  "Light-independent reactions in the stroma that fix carbon into G3P using ATP and NADPH.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Resting membrane potential",
+        "target_term":  "The neuron\u0027s resting voltage, about -70 mV, inside negative relative to outside.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Action potential",
+        "target_term":  "An all-or-none depolarization-repolarization event triggered at threshold (about -55 mV).",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Second messenger",
+        "target_term":  "An intracellular signaling molecule (e.g., cyclic AMP, Ca2+) that amplifies a signal.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Aster-9",
+        "target_term":  "A fictional reporter culture used only for the controlled private-knowledge K-LIB demonstration.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Lumen-R7",
+        "target_term":  "The fictional Aster-9 reporter reagent, dosed at 7.5 microliters per 2.0 milliliters of medium.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Vela-B",
+        "target_term":  "The fictional Aster-9 wash buffer adjusted to pH 7.28.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Aster-9 positive response",
+        "target_term":  "A normalized 472-nm ratio of at least 1.35 at minute 11 after the second Vela-B wash.",
+        "notes":  ""
+    },
+    {
+        "source_term":  "Aster-9 abort condition",
+        "target_term":  "Abort above 34.2 degrees Celsius or when the normalized 472-nm ratio exceeds 2.10 before minute 4.",
+        "notes":  ""
+    }
+]

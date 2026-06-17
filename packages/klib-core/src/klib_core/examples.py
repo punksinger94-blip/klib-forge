@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,206 @@ from .engine import ForgeEngine
 from .errors import LibraryNotFoundError
 from .library import LibraryManager
 from .manifest import save_manifest
+from .medchem import (
+    MEDCHEM_LITE_DESCRIPTION,
+    MedChemStore,
+    initialize_medchem_library,
+)
+
+MEDCHEM_COMPOUNDS_CSV = (
+    "compound_id,name,smiles,synonyms,source_refs,status\n"
+    "CMPD_000001,Aspirin,CC(=O)Oc1ccccc1C(=O)O,acetylsalicylic acid,"
+    "example_reference,research_reference_only\n"
+    "CMPD_000002,Salicylic acid,O=C(O)c1ccccc1O,2-hydroxybenzoic acid,"
+    "example_reference,research_reference_only\n"
+    "CMPD_000003,Acetaminophen,CC(=O)NC1=CC=C(O)C=C1,paracetamol,"
+    "example_reference,research_reference_only\n"
+    "CMPD_000004,Caffeine,Cn1c(=O)c2c(ncn2C)n(C)c1=O,"
+    "1 3 7-trimethylxanthine,example_reference,research_reference_only\n"
+    "CMPD_000005,Ibuprofen,CC(C)Cc1ccc(cc1)C(C)C(=O)O,"
+    "2-(4-isobutylphenyl)propionic acid,example_reference,research_reference_only\n"
+    "CMPD_000006,Invalid example,C1(CC,deliberately invalid,"
+    "example_validation,research_reference_only\n"
+)
+
+MEDCHEM_TARGETS = (
+    {
+        "target_id": "TGT_PTGS1",
+        "name": "Prostaglandin G/H synthase 1",
+        "gene_symbol": "PTGS1",
+        "organism": "Homo sapiens",
+        "accession": "P23219",
+        "description": "Cyclooxygenase-1; constitutive prostaglandin synthesis enzyme.",
+    },
+    {
+        "target_id": "TGT_PTGS2",
+        "name": "Prostaglandin G/H synthase 2",
+        "gene_symbol": "PTGS2",
+        "organism": "Homo sapiens",
+        "accession": "P35354",
+        "description": "Cyclooxygenase-2; inducible prostaglandin synthesis enzyme.",
+    },
+    {
+        "target_id": "TGT_ADORA2A",
+        "name": "Adenosine A2A receptor",
+        "gene_symbol": "ADORA2A",
+        "organism": "Homo sapiens",
+        "accession": "P29274",
+        "description": "G-protein coupled adenosine receptor.",
+    },
+)
+
+MEDCHEM_ENVIRONMENTS = (
+    {
+        "environment_id": "ENV_BIOCHEM_BUFFER_001",
+        "name": "Buffered in-vitro enzyme assay",
+        "environment_type": "in_vitro",
+        "lab_name": "K-LIB teaching lab",
+        "biosafety_level": "BSL-1",
+        "temperature_c": "37",
+        "ph": "7.4",
+        "buffer": "phosphate-buffered assay medium",
+        "assay_platform": "plate-reader biochemical assay",
+        "instrument": "UV/fluorescence plate reader",
+        "notes": "Educational assay context for enzyme inhibition records.",
+    },
+    {
+        "environment_id": "ENV_REVIEW_CONTEXT_001",
+        "name": "Literature review evidence context",
+        "environment_type": "literature_review",
+        "lab_name": "curated literature notes",
+        "notes": "Non-experimental context used for review-derived mechanism records.",
+    },
+)
+
+MEDCHEM_ACTIVITIES = (
+    {
+        "activity_id": "ACT_ASPIRIN_PTGS1_001",
+        "compound_id": "CMPD_000001",
+        "target_id": "TGT_PTGS1",
+        "assay_type": "biochemical mechanism",
+        "environment_id": "ENV_BIOCHEM_BUFFER_001",
+        "endpoint": "inhibition",
+        "relation": "=",
+        "value": "50",
+        "unit": "% at 100 uM after 15 min",
+        "result": "Aspirin acetylation tracked with prostaglandin synthase inhibition",
+        "source_ids": ["LIT_ROTH_1975"],
+        "source_locator": "demo activity record; Roth 1975 mechanism evidence",
+        "evidence_quote": "50% inhibition at 100 uM after 15 min",
+        "evidence_note": (
+            "The original experiment used microsomal enzyme preparations; this demo "
+            "activity stores 50% inhibition at 100 uM after 15 min as the value anchor."
+        ),
+    },
+    {
+        "activity_id": "ACT_ASPIRIN_PG_002",
+        "compound_id": "CMPD_000001",
+        "target_id": "TGT_PTGS2",
+        "assay_type": "prostaglandin synthesis",
+        "environment_id": "ENV_REVIEW_CONTEXT_001",
+        "endpoint": "mechanism",
+        "result": "Aspirin-like drugs inhibited prostaglandin synthesis",
+        "source_ids": ["LIT_VANE_1971"],
+        "source_locator": "demo activity record; Vane 1971 mechanism evidence",
+        "evidence_quote": "Aspirin-like drugs inhibited prostaglandin synthesis",
+        "evidence_note": "Historical mechanism evidence; not a clinical efficacy record.",
+    },
+    {
+        "activity_id": "ACT_CAFFEINE_A2A_001",
+        "compound_id": "CMPD_000004",
+        "target_id": "TGT_ADORA2A",
+        "assay_type": "receptor pharmacology review",
+        "environment_id": "ENV_REVIEW_CONTEXT_001",
+        "endpoint": "mechanism",
+        "result": "Caffeine acts primarily through antagonism of adenosine receptors",
+        "source_ids": ["LIT_FREDHOLM_1999"],
+        "source_locator": "demo activity record; Fredholm 1999 review evidence",
+        "evidence_quote": "antagonism of adenosine receptors",
+        "evidence_note": "Review evidence covering central nervous system actions.",
+    },
+    {
+        "activity_id": "ACT_ACETAMINOPHEN_PTGS1_001",
+        "compound_id": "CMPD_000003",
+        "target_id": "TGT_PTGS1",
+        "assay_type": "mechanism review",
+        "environment_id": "ENV_REVIEW_CONTEXT_001",
+        "endpoint": "context-dependent inhibition",
+        "result": "Acetaminophen can reduce prostaglandin synthesis through the peroxidase site",
+        "source_ids": ["LIT_ANDERSON_2008"],
+        "source_locator": "demo activity record; Anderson 2008 mechanism evidence",
+        "evidence_quote": "peroxide-tone-dependent effects at prostaglandin H2 synthetase",
+        "evidence_note": "The effect depends on cellular peroxide tone and substrate context.",
+    },
+    {
+        "activity_id": "ACT_ACETAMINOPHEN_PTGS2_002",
+        "compound_id": "CMPD_000003",
+        "target_id": "TGT_PTGS2",
+        "assay_type": "mechanism review",
+        "environment_id": "ENV_REVIEW_CONTEXT_001",
+        "endpoint": "context-dependent inhibition",
+        "result": "Acetaminophen cyclooxygenase inhibition is physiologically nuanced",
+        "source_ids": ["LIT_ANDERSON_2008"],
+        "source_locator": "demo activity record; Anderson 2008 mechanism evidence",
+        "evidence_quote": "mechanism is multifactorial",
+        "evidence_note": "The record intentionally preserves mechanistic uncertainty.",
+    },
+)
+
+MEDCHEM_LITERATURE = (
+    {
+        "source_id": "LIT_VANE_1971",
+        "title": "Inhibition of prostaglandin synthesis as a mechanism of action",
+        "citation": "Vane JR. Nat New Biol. 1971;231:232-235. PMID: 5284360.",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/5284360/",
+        "year": "1971",
+        "evidence_summary": (
+            "Aspirin-like drugs inhibited prostaglandin synthesis, supporting a "
+            "mechanistic explanation for their pharmacological actions."
+        ),
+    },
+    {
+        "source_id": "LIT_ROTH_1975",
+        "title": "Acetylation of prostaglandin synthase by aspirin",
+        "citation": (
+            "Roth GJ, Stanford N, Majerus PW. Proc Natl Acad Sci USA. "
+            "1975;72:3073-3076. PMID: 810797."
+        ),
+        "url": "https://pubmed.ncbi.nlm.nih.gov/810797/",
+        "year": "1975",
+        "evidence_summary": (
+            "Aspirin acetylated a prostaglandin synthase protein, and acetylation "
+            "tracked with cyclooxygenase inhibition in the reported experiment. The "
+            "demo activity value anchor is 50% inhibition at 100 uM after 15 min."
+        ),
+    },
+    {
+        "source_id": "LIT_FREDHOLM_1999",
+        "title": "Actions of caffeine in the brain",
+        "citation": (
+            "Fredholm BB et al. Pharmacol Rev. 1999;51:83-133. PMID: 10049999."
+        ),
+        "url": "https://pubmed.ncbi.nlm.nih.gov/10049999/",
+        "year": "1999",
+        "evidence_summary": (
+            "The review identifies antagonism of adenosine receptors as the primary "
+            "mechanism underlying common central actions of caffeine."
+        ),
+    },
+    {
+        "source_id": "LIT_ANDERSON_2008",
+        "title": "Paracetamol (Acetaminophen): mechanisms of action",
+        "citation": (
+            "Anderson BJ. Paediatr Anaesth. 2008;18:915-921. PMID: 18811827."
+        ),
+        "url": "https://pubmed.ncbi.nlm.nih.gov/18811827/",
+        "year": "2008",
+        "evidence_summary": (
+            "The review describes peroxide-tone-dependent effects at prostaglandin "
+            "H2 synthetase and emphasizes that acetaminophen mechanism is multifactorial."
+        ),
+    },
+)
 
 INCIDENT_SOURCES = (
     (
@@ -116,6 +317,15 @@ EXAMPLE_CATALOG = (
         "source_count": len(INCIDENT_SOURCES),
         "eval_count": len(INCIDENT_EVALS),
     },
+    {
+        "id": "medchem-lite",
+        "name": "MedChem-KLIB Lite",
+        "description": MEDCHEM_LITE_DESCRIPTION,
+        "domain": "chemistry/medicinal-chemistry",
+        "source_count": 6,
+        "eval_count": 0,
+        "requires_extra": "medchem",
+    },
 )
 
 
@@ -131,16 +341,23 @@ def install_builtin_example(
         raise LibraryNotFoundError(f"Unknown built-in example: {example_id}")
     try:
         _, path = manager.get(example_id)
+        if example_id == "medchem-lite":
+            _install_medchem_compounds(manager)
+            _install_medchem_evidence(manager, path)
+            MedChemStore(manager, example_id).compile()
         return False, path
     except LibraryNotFoundError:
         pass
 
-    path = (
-        _install_biomedical(manager)
-        if example_id == "biomedical-evidence-synthesis"
-        else _install_incident(manager)
-    )
-    ForgeEngine(manager).compile(example_id)
+    if example_id == "biomedical-evidence-synthesis":
+        path = _install_biomedical(manager)
+        ForgeEngine(manager).compile(example_id)
+    elif example_id == "production-incident-response":
+        path = _install_incident(manager)
+        ForgeEngine(manager).compile(example_id)
+    else:
+        path = _install_medchem(manager)
+        MedChemStore(manager, example_id).compile()
     return True, path
 
 
@@ -275,3 +492,83 @@ def _install_incident(manager: LibraryManager) -> Path:
     for eval_data in INCIDENT_EVALS:
         manager.save_eval(library_id, eval_data)
     return path
+
+
+def _install_medchem(manager: LibraryManager) -> Path:
+    library_id = "medchem-lite"
+    _, path = initialize_medchem_library(
+        manager,
+        "MedChem-KLIB Lite",
+        library_id=library_id,
+    )
+    manager.add_rule(
+        library_id,
+        "Use RDKit-derived structure fields and do not invent chemical properties.",
+        title="Validate chemistry with tools",
+        priority=1,
+    )
+    manager.add_rule(
+        library_id,
+        (
+            "Do not provide synthesis instructions, dosage recommendations, "
+            "clinical decisions, or harmful-compound optimization."
+        ),
+        title="Keep outputs research-only",
+        priority=2,
+    )
+    _install_medchem_compounds(manager)
+    _install_medchem_evidence(manager, path)
+    return path
+
+
+def _install_medchem_compounds(manager: LibraryManager) -> None:
+    with tempfile.TemporaryDirectory() as temporary_dir:
+        source = Path(temporary_dir) / "compounds.csv"
+        source.write_text(MEDCHEM_COMPOUNDS_CSV, encoding="utf-8")
+        MedChemStore(manager, "medchem-lite").import_compounds(source)
+
+
+def _install_medchem_evidence(manager: LibraryManager, path: Path) -> None:
+    store = MedChemStore(manager, "medchem-lite")
+    with tempfile.TemporaryDirectory() as temporary_dir:
+        temporary = Path(temporary_dir)
+        targets = temporary / "targets.jsonl"
+        environments = temporary / "environments.jsonl"
+        activities = temporary / "activities.jsonl"
+        literature = temporary / "literature.jsonl"
+        for output, records in (
+            (targets, MEDCHEM_TARGETS),
+            (environments, MEDCHEM_ENVIRONMENTS),
+            (activities, MEDCHEM_ACTIVITIES),
+            (literature, MEDCHEM_LITERATURE),
+        ):
+            output.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+        store.import_targets(targets)
+        store.import_environments(environments)
+        store.import_bioactivity(activities)
+        store.import_literature(literature)
+    manager.update_manifest(
+        path,
+        {
+            "description": MEDCHEM_LITE_DESCRIPTION,
+            "knowledge_ir_version": "medchem-ir-preview.1",
+            "validator_profile": {
+                "id": "rdkit-medchem-preview",
+                "domain": "chemistry/medicinal-chemistry",
+                "engine": "RDKit",
+                "passes": [
+                    "standardize_identity",
+                    "stereochemistry",
+                    "descriptors",
+                    "structural_alerts",
+                    "activity_normalization",
+                    "referential_integrity",
+                    "provenance",
+                    "safety",
+                ],
+            },
+        },
+    )

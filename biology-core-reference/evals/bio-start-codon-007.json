@@ -1,0 +1,18 @@
+{
+  "id": "bio-start-codon-007",
+  "name": "Start codon and its amino acid",
+  "task": "grounded_biology",
+  "input": "What is the start codon, and which amino acid does it specify? Cite.",
+  "checks": {
+    "must_include": [
+      "AUG"
+    ],
+    "must_include_any": [
+      [
+        "methionine",
+        "Met"
+      ]
+    ],
+    "citation_required": true
+  }
+}

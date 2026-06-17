@@ -40,3 +40,52 @@ expertise.
 
 The included answer key has deterministic automated checks but has not been
 independently reviewed by a biology subject-matter expert.
+
+## Hermes Agent + NVIDIA public-world benchmark
+
+`scripts/run-hermes-nvidia-public-ab.py` runs the public primary-literature
+benchmark through two different paths:
+
+- **NVIDIA only:** direct NVIDIA API call with no tools, K-LIB, web search, or
+  local files.
+- **Hermes + K-LIB:** Hermes Agent uses the same NVIDIA model while calling the
+  `klib_forge` MCP tools to search `biomedical-evidence-synthesis`.
+
+The runner invokes Hermes with `hermes chat -Q`, because that noninteractive
+entrypoint exposes MCP tools to the agent. The shorter `hermes -z` one-shot path
+is useful for plain model prompts, but it did not expose `klib_forge` during the
+release qualification run.
+
+This is the preferred non-fiction demo because the questions are backed by
+public primary-study records with DOI/PMCID/source URLs. It measures whether
+Hermes plus K-LIB recovers exact paper-specific identifiers, mechanisms,
+quantities, and numeric citations better than the model alone.
+
+```powershell
+$env:NVIDIA_API_KEY = "nvapi-..."
+.\.venv\Scripts\python.exe .\scripts\run-hermes-nvidia-public-ab.py `
+  --model minimaxai/minimax-m3 `
+  --hermes-timeout 180 `
+  --hermes-max-turns 12
+```
+
+During release qualification, `minimaxai/minimax-m3` handled raw NVIDIA tool
+calling but stalled inside the Hermes MCP search loop. For the public release
+video, use a NVIDIA model that completed the Hermes + K-LIB tool path:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run-hermes-nvidia-public-ab.py `
+  --model nvidia/llama-3.3-nemotron-super-49b-v1.5 `
+  --hermes-timeout 180 `
+  --hermes-max-turns 12
+```
+
+If Hermes does not recognize `--provider nvidia` on the local machine, keep the
+same NVIDIA API key and run:
+
+```powershell
+$env:OPENAI_BASE_URL = "https://integrate.api.nvidia.com/v1"
+.\.venv\Scripts\python.exe .\scripts\run-hermes-nvidia-public-ab.py `
+  --model minimaxai/minimax-m3 `
+  --hermes-provider openai-compatible
+```

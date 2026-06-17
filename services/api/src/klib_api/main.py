@@ -10,10 +10,18 @@ from typing import Any, Literal
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from klib_core import ForgeEngine, LibraryManager, __version__
 from klib_core.errors import KlibError, LibraryNotFoundError
 from klib_core.examples import install_builtin_example, list_builtin_examples
+from klib_core.medchem import (
+    MedChemStore,
+    conformer_3d_sdf,
+    medchem_source_catalog,
+    rdkit_available,
+    safety_check,
+    skeletal_svg,
+)
 from klib_core.profiles import ModelProfileManager
 from klib_core.providers import get_provider, provider_specs
 from pydantic import BaseModel, Field
@@ -146,6 +154,30 @@ class ProfileCreate(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
+class MedChemSimilarityRequest(BaseModel):
+    smiles: str = Field(min_length=1)
+    top_k: int = Field(default=10, ge=1, le=100)
+
+
+class MedChemSafetyRequest(BaseModel):
+    request: str = Field(min_length=1)
+
+
+class MedChemResearchRequest(BaseModel):
+    question: str = Field(min_length=1)
+
+
+class MedChemAgentRequest(BaseModel):
+    question: str = Field(min_length=1)
+    provider: str = "mock"
+    model: str = "offline"
+    base_url: str | None = None
+    pubchem_identifiers: list[str] = Field(default_factory=list)
+    pubchem_namespace: Literal["name", "cid"] = "name"
+    synonyms_limit: int = Field(default=12, ge=0, le=50)
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
 app = FastAPI(
     title="K-LIB Forge API",
     version=__version__,
@@ -222,6 +254,10 @@ def capabilities() -> dict[str, Any]:
             "chroma": importlib.util.find_spec("chromadb") is not None,
             "qdrant": True,
         },
+        "medchem": {
+            "available": rdkit_available(),
+            "engine": "RDKit" if rdkit_available() else None,
+        },
     }
 
 
@@ -264,6 +300,206 @@ def builtin_examples() -> list[dict[str, Any]]:
 def install_example(example_id: str) -> dict[str, Any]:
     created, _ = install_builtin_example(manager(), example_id)
     return {"created": created, "library": library_detail(example_id)}
+
+
+@app.get("/libraries/{library_id}/medchem/status")
+def medchem_status(library_id: str) -> dict[str, Any]:
+    store = MedChemStore(manager(), library_id)
+    source_records = store.compounds(compiled=False)
+    report = store.compile_report()
+    return {
+        "library_id": library_id,
+        "rdkit_available": rdkit_available(),
+        "imported_compounds": len(source_records),
+        "compiled_compounds": int(report.get("valid_compounds", 0)) if report else 0,
+        "invalid_compounds": int(report.get("invalid_compounds", 0)) if report else 0,
+        "unique_scaffolds": int(report.get("unique_scaffolds", 0)) if report else 0,
+        "compiled": report is not None,
+        "report": report,
+        "evidence": store.evidence_status(),
+    }
+
+
+@app.get("/medchem/sources")
+def medchem_sources() -> dict[str, dict[str, str]]:
+    return medchem_source_catalog()
+
+
+@app.post("/libraries/{library_id}/medchem/import", status_code=201)
+async def medchem_import(library_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+    suffix = Path(file.filename or "compounds.csv").suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temporary:
+        temporary.write(await file.read())
+        temporary_path = Path(temporary.name)
+    try:
+        return MedChemStore(manager(), library_id).import_compounds(temporary_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+async def _temporary_upload(file: UploadFile, fallback: str) -> Path:
+    suffix = Path(file.filename or fallback).suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temporary:
+        temporary.write(await file.read())
+        return Path(temporary.name)
+
+
+@app.post("/libraries/{library_id}/medchem/targets/import", status_code=201)
+async def medchem_import_targets(
+    library_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    temporary_path = await _temporary_upload(file, "targets.csv")
+    try:
+        return MedChemStore(manager(), library_id).import_targets(temporary_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@app.post("/libraries/{library_id}/medchem/environments/import", status_code=201)
+async def medchem_import_environments(
+    library_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    temporary_path = await _temporary_upload(file, "environments.csv")
+    try:
+        return MedChemStore(manager(), library_id).import_environments(temporary_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@app.post("/libraries/{library_id}/medchem/bioactivity/import", status_code=201)
+async def medchem_import_bioactivity(
+    library_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    temporary_path = await _temporary_upload(file, "activities.csv")
+    try:
+        return MedChemStore(manager(), library_id).import_bioactivity(temporary_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@app.post("/libraries/{library_id}/medchem/literature/import", status_code=201)
+async def medchem_import_literature(
+    library_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    temporary_path = await _temporary_upload(file, "literature.jsonl")
+    try:
+        return MedChemStore(manager(), library_id).import_literature(temporary_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@app.get("/libraries/{library_id}/medchem/validate")
+def medchem_validate(library_id: str) -> dict[str, Any]:
+    return MedChemStore(manager(), library_id).validate()
+
+
+@app.post("/libraries/{library_id}/medchem/compile")
+def medchem_compile(library_id: str) -> dict[str, Any]:
+    return MedChemStore(manager(), library_id).compile()
+
+
+@app.get("/libraries/{library_id}/medchem/compounds")
+def medchem_compounds(
+    library_id: str,
+    query: str = "",
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    store = MedChemStore(manager(), library_id)
+    return store.search(query, limit) if query.strip() else store.compounds()
+
+
+@app.get("/libraries/{library_id}/medchem/targets")
+def medchem_targets(library_id: str) -> list[dict[str, Any]]:
+    return MedChemStore(manager(), library_id).targets()
+
+
+@app.get("/libraries/{library_id}/medchem/environments")
+def medchem_environments(library_id: str) -> list[dict[str, Any]]:
+    return MedChemStore(manager(), library_id).environments()
+
+
+@app.get("/libraries/{library_id}/medchem/bioactivity")
+def medchem_bioactivity(library_id: str) -> list[dict[str, Any]]:
+    return MedChemStore(manager(), library_id).activities()
+
+
+@app.get("/libraries/{library_id}/medchem/literature")
+def medchem_literature(library_id: str) -> list[dict[str, Any]]:
+    return MedChemStore(manager(), library_id).literature()
+
+
+@app.post("/libraries/{library_id}/medchem/research")
+def medchem_research(
+    library_id: str,
+    request: MedChemResearchRequest,
+) -> dict[str, Any]:
+    return MedChemStore(manager(), library_id).research_brief(request.question)
+
+
+@app.post("/libraries/{library_id}/medchem/agent")
+def medchem_agent(
+    library_id: str,
+    request: MedChemAgentRequest,
+) -> dict[str, Any]:
+    return MedChemStore(manager(), library_id).research_agent(
+        request.question,
+        provider=request.provider,
+        model=request.model,
+        base_url=request.base_url,
+        pubchem_identifiers=request.pubchem_identifiers,
+        pubchem_namespace=request.pubchem_namespace,
+        synonyms_limit=request.synonyms_limit,
+        options=request.options,
+    )
+
+
+@app.post("/libraries/{library_id}/medchem/evals")
+def medchem_evals(library_id: str) -> dict[str, Any]:
+    return MedChemStore(manager(), library_id).run_evidence_evals()
+
+
+@app.get("/medchem/structure.svg")
+def medchem_structure(
+    smiles: str = Query(min_length=1, max_length=2000),
+    width: int = Query(default=280, ge=80, le=1000),
+    height: int = Query(default=170, ge=60, le=1000),
+) -> Response:
+    return Response(
+        content=skeletal_svg(smiles, width=width, height=height),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/medchem/structure3d.sdf")
+def medchem_structure_3d(
+    smiles: str = Query(min_length=1, max_length=2000),
+) -> Response:
+    return Response(
+        content=conformer_3d_sdf(smiles),
+        media_type="chemical/x-mdl-sdfile",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Content-Disposition": 'inline; filename="klib-conformer.sdf"',
+        },
+    )
+
+
+@app.post("/libraries/{library_id}/medchem/similar")
+def medchem_similar(
+    library_id: str,
+    request: MedChemSimilarityRequest,
+) -> list[dict[str, Any]]:
+    return MedChemStore(manager(), library_id).similar(request.smiles, request.top_k)
+
+
+@app.post("/medchem/safety-check")
+def medchem_safety(request: MedChemSafetyRequest) -> dict[str, Any]:
+    return safety_check(request.request)
 
 
 @app.delete("/libraries/{library_id}", status_code=204)

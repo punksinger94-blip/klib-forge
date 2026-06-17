@@ -1,0 +1,28 @@
+{
+  "id": "bio-krebs-004",
+  "name": "Citric acid cycle per-turn products",
+  "task": "grounded_biology",
+  "input": "Per single turn, what does the citric acid cycle produce (NADH, FADH2, GTP/ATP, CO2)? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "3 NADH",
+        "three NADH"
+      ],
+      [
+        "FADH2",
+        "FADH₂"
+      ],
+      [
+        "GTP",
+        "ATP"
+      ],
+      [
+        "2 CO2",
+        "two CO2",
+        "2 carbon dioxide"
+      ]
+    ],
+    "citation_required": true
+  }
+}

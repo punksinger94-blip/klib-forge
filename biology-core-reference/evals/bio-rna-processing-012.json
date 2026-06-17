@@ -1,0 +1,24 @@
+{
+  "id": "bio-rna-processing-012",
+  "name": "Eukaryotic mRNA processing",
+  "task": "grounded_biology",
+  "input": "Name the three modifications made to a eukaryotic pre-mRNA before translation. Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "cap"
+      ],
+      [
+        "poly-A",
+        "poly(A)",
+        "polyadenyl",
+        "poly A"
+      ],
+      [
+        "splic",
+        "intron"
+      ]
+    ],
+    "citation_required": true
+  }
+}

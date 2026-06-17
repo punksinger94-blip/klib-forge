@@ -1,0 +1,15 @@
+{
+  "id": "bio-mitosis-016",
+  "name": "Phases of mitosis in order",
+  "task": "grounded_biology",
+  "input": "List the four phases of mitosis in the correct order. Cite.",
+  "checks": {
+    "must_include": [
+      "prophase",
+      "metaphase",
+      "anaphase",
+      "telophase"
+    ],
+    "citation_required": true
+  }
+}

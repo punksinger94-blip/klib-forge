@@ -1,0 +1,25 @@
+{
+  "id": "bio-photosynthesis-018",
+  "name": "Light reactions location and products",
+  "task": "grounded_biology",
+  "input": "Where do the light-dependent reactions occur, and what are their main products? Cite.",
+  "checks": {
+    "must_include_any": [
+      [
+        "thylakoid"
+      ],
+      [
+        "ATP"
+      ],
+      [
+        "NADPH"
+      ],
+      [
+        "oxygen",
+        "O2",
+        "O₂"
+      ]
+    ],
+    "citation_required": true
+  }
+}

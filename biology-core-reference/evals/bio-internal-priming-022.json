@@ -1,0 +1,15 @@
+{
+  "id": "bio-internal-priming-022",
+  "name": "Recover the private Aster-9 priming conditions",
+  "task": "internal_protocol_recall",
+  "input": "In the fictional internal Aster-9 assay, what Lumen-R7 dose, medium volume, incubation time, and temperature are used for reporter priming? Cite the source.",
+  "checks": {
+    "must_include": [
+      "7.5",
+      "2.0",
+      "14",
+      "33"
+    ],
+    "citation_required": true
+  }
+}

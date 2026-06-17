@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Add the optional MedChem-KLIB Lite v0.1-alpha command group.
+- Add RDKit-backed compound validation, descriptors, Murcko scaffolds, Morgan
+  fingerprint similarity, compile reports, and research-boundary safety checks.
+- Add MedChem duplicate identity review groups and a P1/P2/P3 chemistry source roadmap.
+- Add the MedChem research-agent pipeline for PubChem enrichment, RDKit/evidence
+  checks, K-LIB context packaging, and optional NVIDIA/OpenAI-compatible synthesis.
+- Add a Hermes + Minimax-M3 internet-discovery-to-K-LIB MedChem workflow script.
+- Add B.AI as an OpenAI-compatible provider shortcut for `minimax-m3`.
+- Add a safe example compound dataset and MedChem regression tests.
+
 ## 1.0.0 - 2026-06-13
 
 - Complete the original K-LIB Forge local-first roadmap.
