@@ -8,9 +8,26 @@ models.
 
 **Build once. Run on any model.**
 
+## Current preview release
+
+The latest preview is
+[K-LIB Forge 1.0.0 Preview 2](https://github.com/punksinger94-blip/klib-forge/releases/tag/v1.0.0-preview.2).
+
+Preview 2 includes the MedChem-KLIB Lite workflow, Hermes Agent integration
+guides, the biology reference package, and a new deep release qualification
+gate. The final pre-release qualification report passed **8/8** gates: Python
+lint, pytest, desktop UI build, CLI, API, MCP, ecosystem smoke, and the advanced
+Advil/ibuprofen MedChem research workflow.
+
+The Windows installer is SignPath-processed and timestamped, but the signing
+certificate is not publicly trusted yet. Windows may still show a trust warning;
+treat this as a preview build until a publicly trusted Authenticode certificate
+is configured.
+
 The built-in catalog includes primary-literature biomedical evidence synthesis
-and production incident response. Browse it with `klib example-catalog` and
-install a package with `klib install-example EXAMPLE_ID`.
+production incident response, biology reference material, and MedChem-KLIB Lite.
+Browse it with `klib example-catalog` and install a package with
+`klib install-example EXAMPLE_ID`.
 
 ## 1.0 capabilities
 
@@ -28,7 +45,8 @@ install a package with `klib install-example EXAMPLE_ID`.
 - Reviewed corrections that create regression evals
 - Multi-model Eval Arena and Knowledge Diff snapshots
 - Prompt-injection scanning and per-source trust levels
-- Optional MedChem alpha with RDKit validation, descriptors, scaffolds, and similarity
+- MedChem-KLIB Lite with RDKit validation, descriptors, scaffolds, similarity,
+  duplicate identity review, source roadmap, and 2D/3D visualization hooks
 - Package editors, model profiles, import/export, run history, and prompt inspection
 - Stable Python SDK and MCP stdio server
 - Safe ZIP-based `.klib` import and export
@@ -95,6 +113,10 @@ The Windows installer is generated under:
 ```text
 apps/desktop/src-tauri/target/release/bundle/nsis/
 ```
+
+Release assets for Preview 2 are published on GitHub and include the Windows
+installer, Python wheel, source distribution, demo video, signing notice,
+SHA256 hashes, release-readiness report, and deep qualification report.
 
 ## NVIDIA biological A/B benchmark
 
