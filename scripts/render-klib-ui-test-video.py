@@ -242,15 +242,15 @@ def similarity_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Ima
     image = base_frame()
     draw = ImageDraw.Draw(image)
     brand(draw, "SIMILARITY + SAFETY")
-    text(draw, (110, 175), "Similarity search with guardrails", F36, WHITE)
+    text(draw, (110, 235), "Similarity search + safety gate", F28, WHITE)
     paste_screenshot(
         image,
         draw,
         shots / "07-medchem-similarity-safety.png",
-        (70, 250, 1340, 990),
+        (70, 330, 1290, 990),
     )
-    panel(draw, (1380, 260, 1815, 845), SURFACE_2)
-    text(draw, (1420, 315), "Visible proof", F22, WHITE)
+    panel(draw, (1330, 330, 1780, 870), SURFACE_2)
+    text(draw, (1370, 380), "Visible proof", F22, WHITE)
     facts = [
         "Morgan fingerprints",
         "Ranked similar molecules",
@@ -258,10 +258,10 @@ def similarity_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Ima
         "Unsafe synthesis blocked",
     ]
     for index, fact in enumerate(facts):
-        y = 410 + index * 86
-        draw.rounded_rectangle((1420, y, 1460, y + 40), radius=20, fill=ACCENT)
-        text(draw, (1440, y + 20), str(index + 1), F12, BG, anchor="mm")
-        text(draw, (1485, y + 3), fact, F16)
+        y = 470 + index * 78
+        draw.rounded_rectangle((1370, y, 1410, y + 40), radius=20, fill=ACCENT)
+        text(draw, (1390, y + 20), str(index + 1), F12, BG, anchor="mm")
+        text(draw, (1435, y + 4), fact, F14)
     return image
 
 
@@ -269,15 +269,15 @@ def evidence_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image
     image = base_frame()
     draw = ImageDraw.Draw(image)
     brand(draw, "CITED RESEARCH")
-    text(draw, (110, 175), "Ask linked evidence, then test it", F36, WHITE)
+    text(draw, (110, 235), "Linked evidence + regression tests", F28, WHITE)
     paste_screenshot(
         image,
         draw,
         shots / "08-medchem-evidence-evals.png",
-        (80, 235, 1360, 990),
+        (80, 330, 1290, 990),
     )
-    panel(draw, (1400, 250, 1815, 825), SURFACE_2)
-    text(draw, (1440, 305), "Grounded output", F22, WHITE)
+    panel(draw, (1330, 330, 1780, 870), SURFACE_2)
+    text(draw, (1370, 380), "Grounded output", F22, WHITE)
     lines = [
         "Cited evidence brief",
         "Source identifiers visible",
@@ -285,10 +285,10 @@ def evidence_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image
         "Safety refusal checked",
     ]
     for index, line in enumerate(lines):
-        y = 398 + index * 86
-        draw.ellipse((1444, y + 8, 1474, y + 38), fill=MINT)
-        text(draw, (1459, y + 23), "OK", F12, BG, anchor="mm")
-        text(draw, (1500, y + 2), line, F16)
+        y = 470 + index * 78
+        draw.ellipse((1374, y + 8, 1404, y + 38), fill=MINT)
+        text(draw, (1389, y + 23), "OK", F12, BG, anchor="mm")
+        text(draw, (1430, y + 4), line, F14)
     return image
 
 
@@ -362,9 +362,9 @@ def final_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
     image = base_frame()
     draw = ImageDraw.Draw(image)
     brand(draw, "READY TO SHOW")
-    text(draw, (120, 210), "K-LIB is visible, testable, and packaged.", F36, WHITE)
-    paste_screenshot(image, draw, shots / "08-medchem-evidence-evals.png", (1040, 170, 1810, 760))
-    panel(draw, (120, 390, 920, 780), SURFACE_2)
+    text(draw, (120, 235), "Visible. Testable. Packaged.", F28, WHITE)
+    paste_screenshot(image, draw, shots / "08-medchem-evidence-evals.png", (980, 320, 1760, 840))
+    panel(draw, (120, 370, 890, 780), SURFACE_2)
     final_lines = [
         "UI: Desktop app shows active package + MedChem Lab",
         "Tests: 8/8 deep release gates passed",
