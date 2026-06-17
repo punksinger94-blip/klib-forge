@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 WIDTH = 1920
 HEIGHT = 1080
 FPS = 30
-DURATION = 22
+DURATION = 38
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "dist" / "media" / "klib-forge-ui-test-proof.mp4"
@@ -174,8 +174,8 @@ def title_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
     x = 120
     x += pill(draw, (x, 460), "PREVIEW 2", ACCENT) + 18
     x += pill(draw, (x, 460), f"{report['passed']}/{report['total']} TEST GATES", MINT) + 18
-    pill(draw, (x, 460), "CLI · API · MCP · UI", MINT)
-    paste_screenshot(image, draw, shots / "01-dashboard.png", (930, 190, 1800, 850))
+    pill(draw, (x, 460), "CLI / API / MCP / UI", MINT)
+    paste_screenshot(image, draw, shots / "08-medchem-evidence-evals.png", (930, 190, 1800, 850))
     panel(draw, (120, 620, 820, 910), SURFACE_2)
     text(draw, (160, 664), "What viewers see", F22, WHITE)
     lines = [
@@ -214,8 +214,13 @@ def medchem_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
     image = base_frame()
     draw = ImageDraw.Draw(image)
     brand(draw, "MEDCHEM LAB")
-    text(draw, (110, 175), "Molecular evidence workflow", F36, WHITE)
-    paste_screenshot(image, draw, shots / "02-medchem-lab-top.png", (90, 270, 1280, 990))
+    text(draw, (110, 175), "RDKit-backed molecule library", F36, WHITE)
+    paste_screenshot(
+        image,
+        draw,
+        shots / "06-medchem-compound-store-rdkit.png",
+        (90, 270, 1280, 990),
+    )
     panel(draw, (1320, 270, 1810, 870), SURFACE_2)
     text(draw, (1360, 320), "What K-LIB adds", F22, WHITE)
     facts = [
@@ -233,6 +238,102 @@ def medchem_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
     return image
 
 
+def similarity_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
+    image = base_frame()
+    draw = ImageDraw.Draw(image)
+    brand(draw, "SIMILARITY + SAFETY")
+    text(draw, (110, 175), "Similarity search with guardrails", F36, WHITE)
+    paste_screenshot(
+        image,
+        draw,
+        shots / "07-medchem-similarity-safety.png",
+        (70, 250, 1340, 990),
+    )
+    panel(draw, (1380, 260, 1815, 845), SURFACE_2)
+    text(draw, (1420, 315), "Visible proof", F22, WHITE)
+    facts = [
+        "Morgan fingerprints",
+        "Ranked similar molecules",
+        "Descriptor cards",
+        "Unsafe synthesis blocked",
+    ]
+    for index, fact in enumerate(facts):
+        y = 410 + index * 86
+        draw.rounded_rectangle((1420, y, 1460, y + 40), radius=20, fill=ACCENT)
+        text(draw, (1440, y + 20), str(index + 1), F12, BG, anchor="mm")
+        text(draw, (1485, y + 3), fact, F16)
+    return image
+
+
+def evidence_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
+    image = base_frame()
+    draw = ImageDraw.Draw(image)
+    brand(draw, "CITED RESEARCH")
+    text(draw, (110, 175), "Ask linked evidence, then test it", F36, WHITE)
+    paste_screenshot(
+        image,
+        draw,
+        shots / "08-medchem-evidence-evals.png",
+        (80, 235, 1360, 990),
+    )
+    panel(draw, (1400, 250, 1815, 825), SURFACE_2)
+    text(draw, (1440, 305), "Grounded output", F22, WHITE)
+    lines = [
+        "Cited evidence brief",
+        "Source identifiers visible",
+        "Regression suite: 100%",
+        "Safety refusal checked",
+    ]
+    for index, line in enumerate(lines):
+        y = 398 + index * 86
+        draw.ellipse((1444, y + 8, 1474, y + 38), fill=MINT)
+        text(draw, (1459, y + 23), "OK", F12, BG, anchor="mm")
+        text(draw, (1500, y + 2), line, F16)
+    return image
+
+
+def record_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
+    image = base_frame()
+    draw = ImageDraw.Draw(image)
+    brand(draw, "EVIDENCE RECORDS")
+    text(draw, (110, 175), "Bioactivity ledger + literature notes", F36, WHITE)
+    paste_screenshot(
+        image,
+        draw,
+        shots / "09-medchem-bioactivity-ledger.png",
+        (90, 260, 875, 965),
+    )
+    paste_screenshot(
+        image,
+        draw,
+        shots / "10-medchem-literature-notes.png",
+        (940, 260, 1810, 965),
+    )
+    panel(draw, (120, 880, 1800, 1000), "#0b1514")
+    text(
+        draw,
+        (160, 920),
+        "K-LIB keeps compound records, target links, cited sources, and eval claims together.",
+        F18,
+        MINT,
+    )
+    return image
+
+
+def cited_brief_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
+    image = base_frame()
+    draw = ImageDraw.Draw(image)
+    brand(draw, "GROUNDED BRIEF")
+    text(draw, (110, 175), "Evidence answer, not loose model memory", F36, WHITE)
+    paste_screenshot(
+        image,
+        draw,
+        shots / "11-medchem-cited-brief.png",
+        (300, 245, 1620, 995),
+    )
+    return image
+
+
 def gate_scene(_: float, _shots: Path, report: dict[str, Any]) -> Image.Image:
     image = base_frame()
     draw = ImageDraw.Draw(image)
@@ -247,7 +348,7 @@ def gate_scene(_: float, _shots: Path, report: dict[str, Any]) -> Image.Image:
         y = 430 + row * 130
         panel(draw, (x, y, x + 770, y + 96), SURFACE_2)
         draw.ellipse((x + 32, y + 32, x + 64, y + 64), fill=MINT)
-        text(draw, (x + 48, y + 48), "✓", F14, BG, anchor="mm")
+        text(draw, (x + 48, y + 48), "OK", F12, BG, anchor="mm")
         text(draw, (x + 88, y + 24), check["name"], F16, WHITE)
         detail = check.get("detail", {})
         if isinstance(detail, dict) and "evals" in detail:
@@ -262,7 +363,7 @@ def final_scene(_: float, shots: Path, report: dict[str, Any]) -> Image.Image:
     draw = ImageDraw.Draw(image)
     brand(draw, "READY TO SHOW")
     text(draw, (120, 210), "K-LIB is visible, testable, and packaged.", F36, WHITE)
-    paste_screenshot(image, draw, shots / "02-medchem-lab-top.png", (1040, 170, 1810, 760))
+    paste_screenshot(image, draw, shots / "08-medchem-evidence-evals.png", (1040, 170, 1810, 760))
     panel(draw, (120, 390, 920, 780), SURFACE_2)
     final_lines = [
         "UI: Desktop app shows active package + MedChem Lab",
@@ -285,8 +386,12 @@ def frame_at(second: float, shots: Path, report: dict[str, Any]) -> Image.Image:
         (0, 4, title_scene),
         (4, 8, dashboard_scene),
         (8, 13, medchem_scene),
-        (13, 18, gate_scene),
-        (18, DURATION, final_scene),
+        (13, 18, similarity_scene),
+        (18, 23, evidence_scene),
+        (23, 28, record_scene),
+        (28, 32, cited_brief_scene),
+        (32, 36, gate_scene),
+        (36, DURATION, final_scene),
     ]
     for start, end, scene in scenes:
         if start <= second < end:
@@ -304,7 +409,15 @@ def render(
     report = load_json(report_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     thumbnail.parent.mkdir(parents=True, exist_ok=True)
-    for required in ("01-dashboard.png", "02-medchem-lab-top.png"):
+    for required in (
+        "01-dashboard.png",
+        "06-medchem-compound-store-rdkit.png",
+        "07-medchem-similarity-safety.png",
+        "08-medchem-evidence-evals.png",
+        "09-medchem-bioactivity-ledger.png",
+        "10-medchem-literature-notes.png",
+        "11-medchem-cited-brief.png",
+    ):
         if not (shots / required).exists():
             raise SystemExit(f"Missing UI screenshot: {shots / required}")
 
