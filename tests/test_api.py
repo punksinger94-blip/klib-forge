@@ -96,6 +96,18 @@ def test_builtin_examples_are_advanced_ready_and_idempotent(
 
 
 @pytest.mark.skipif(not rdkit_available(), reason="RDKit optional extra is not installed")
+def test_api_bootstraps_configured_examples(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("KLIB_HOME", str(tmp_path / "bootstrap-home"))
+    monkeypatch.setenv("KLIB_BOOTSTRAP_EXAMPLES", "medchem-lite")
+
+    with TestClient(app) as client:
+        libraries = client.get("/libraries")
+
+    assert libraries.status_code == 200
+    assert any(item["id"] == "medchem-lite" for item in libraries.json())
+
+
+@pytest.mark.skipif(not rdkit_available(), reason="RDKit optional extra is not installed")
 def test_medchem_api_workflow_is_visible_end_to_end(
     tmp_path: Path,
     monkeypatch,

@@ -82,6 +82,7 @@ fn start_runtime(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .env("KLIB_API_HOST", "127.0.0.1")
         .env("KLIB_API_PORT", port.to_string())
         .env("KLIB_API_LOG_LEVEL", "warning")
+        .env("KLIB_BOOTSTRAP_EXAMPLES", "medchem-lite")
         .env("KLIB_HOME", home)
         .env("KLIB_PARENT_PID", std::process::id().to_string())
         .spawn()?;

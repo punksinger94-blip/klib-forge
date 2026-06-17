@@ -4,6 +4,8 @@ import importlib.util
 import os
 import shutil
 import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 
@@ -178,10 +180,23 @@ class MedChemAgentRequest(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
+def bootstrap_examples() -> None:
+    configured = os.getenv("KLIB_BOOTSTRAP_EXAMPLES", "")
+    for example_id in [item.strip() for item in configured.split(",") if item.strip()]:
+        install_builtin_example(manager(), example_id)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    bootstrap_examples()
+    yield
+
+
 app = FastAPI(
     title="K-LIB Forge API",
     version=__version__,
     description="Local-first API for building and running portable .klib packages.",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,
