@@ -149,7 +149,7 @@ pyinstaller-hooks-contrib==2026.6
     # via pyinstaller
 pyparsing==3.3.2
     # via pip-requirements-parser
-pypdf==6.13.2
+pypdf==6.13.3
     # via klib-forge (pyproject.toml)
 pyproject-hooks==1.2.0
     # via

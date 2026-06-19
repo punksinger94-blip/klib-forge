@@ -58,7 +58,7 @@ pydantic-core==2.46.4
     # via pydantic
 pygments==2.20.0
     # via rich
-pypdf==6.13.2
+pypdf==6.13.3
     # via klib-forge (pyproject.toml)
 python-multipart==0.0.32
     # via klib-forge (pyproject.toml)
