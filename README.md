@@ -8,6 +8,81 @@ models.
 
 **Build once. Run on any model.**
 
+## Vision: a knowledge compiler, not just RAG
+
+K-LIB Forge is built around a compiler-style idea: knowledge should be checked
+before a model uses it. Retrieval-augmented generation usually decides what
+context to trust at inference time, once per query. K-LIB packages move more of
+that work to build time, where sources, rules, examples, corrections, evals,
+and domain records can be inspected, validated, versioned, and shipped as one
+portable artifact.
+
+The goal is not to replace retrieval. The goal is to make retrieval run over a
+known, testable package instead of a loose folder of documents.
+
+| Question | Typical RAG stack | K-LIB Forge direction |
+| --- | --- | --- |
+| When is knowledge checked? | At inference time | At package build time and again in evals |
+| What is the output? | Prompt context for one run | A versioned `.klib` package |
+| What can be audited? | Usually the final answer and retrieved chunks | Sources, package manifest, rules, evals, reports, and run history |
+| How are fixes kept? | Often as prompt changes | Corrections can become regression evals |
+| Model coupling | Usually tied to one provider or vector store | Package can run with local or hosted models |
+
+In the long-term version of K-LIB Forge, a package build should feel like a
+compiler pass: parse records, validate structure, check references, attach
+provenance, enforce safety boundaries, run evals, and emit diagnostics when a
+record is not shippable.
+
+## Preview 2 reality
+
+Preview 2 already implements the practical core of that model:
+
+- `.klib` import/export with safe ZIP handling and JSON Schema validation
+- CLI, FastAPI service, desktop UI, Python SDK, and MCP server
+- deterministic compile and eval flows for package regression checks
+- reviewed corrections that can create regression evals
+- package run history, prompt inspection, Eval Arena, and Knowledge Diff UI
+- local-first retrieval with optional vector backends
+- broad local and hosted model connector support
+- MedChem-KLIB Lite with RDKit validation, descriptors, scaffolds, similarity
+  search, duplicate identity review, evidence links, safety checks, and
+  research-only boundaries
+- desktop installer that starts its bundled API sidecar and bootstraps
+  MedChem-KLIB Lite into the local runtime
+
+The current MedChem workflow is the clearest compiler-style example: invalid
+molecular records are rejected, compiled compounds keep RDKit-derived
+descriptors and provenance labels, linked evidence can be summarized with
+citations, and safety probes are tested as part of the evidence regression
+suite.
+
+Example Preview 2 flow:
+
+```powershell
+klib install-example medchem-lite
+klib medchem validate --library medchem-lite
+klib medchem compile --library medchem-lite
+klib medchem similar "CC(=O)Oc1ccccc1C(=O)O" --library medchem-lite
+klib medchem evidence-evals --library medchem-lite
+klib export medchem-lite.klib --library medchem-lite
+```
+
+## Roadmap
+
+The compiler vision is not finished. The next important steps are:
+
+- a typed knowledge IR so package records can be checked more like typed data
+- stronger semantic provenance checks that verify cited values against source
+  spans, not just source links
+- domain-pluggable validators beyond chemistry, such as biology unit,
+  ontology, sequence, and identifier checks
+- richer Knowledge Diff semantics between two compiled package snapshots
+- cleaner release signing with a publicly trusted Authenticode certificate
+- deeper installer and first-run tests across clean Windows environments
+
+K-LIB Forge is still a pre-release. Expect package format and workflow changes
+before a stable 1.0 line.
+
 ## Current preview release
 
 The latest preview is
@@ -19,15 +94,18 @@ gate. The final pre-release qualification report passed **8/8** gates: Python
 lint, pytest, desktop UI build, CLI, API, MCP, ecosystem smoke, and the advanced
 Advil/ibuprofen MedChem research workflow.
 
-The Windows installer is SignPath-processed and timestamped, but the signing
-certificate is not publicly trusted yet. Windows may still show a trust warning;
-treat this as a preview build until a publicly trusted Authenticode certificate
-is configured.
+The Windows installer is SignPath-processed, timestamped, and MedChem-enabled,
+but the signing certificate is not publicly trusted yet. Windows may still show
+a trust warning; treat this as a preview build until a publicly trusted
+Authenticode certificate is configured.
 
-The built-in catalog includes primary-literature biomedical evidence synthesis
-production incident response, biology reference material, and MedChem-KLIB Lite.
-Browse it with `klib example-catalog` and install a package with
-`klib install-example EXAMPLE_ID`.
+The built-in catalog includes primary-literature biomedical evidence synthesis,
+production incident response, and MedChem-KLIB Lite. Browse it with
+`klib example-catalog` and install a package with:
+
+```powershell
+klib install-example EXAMPLE_ID
+```
 
 ## 1.0 capabilities
 
