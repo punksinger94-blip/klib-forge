@@ -8,6 +8,11 @@ models.
 
 **Build once. Run on any model.**
 
+![K-LIB Forge desktop dashboard](docs/images/desktop-dashboard-preview.png)
+
+The desktop app keeps each package's sources, rules, examples, corrections,
+evals, and release history visible in one local-first workspace.
+
 ## Vision: a knowledge compiler, not just RAG
 
 K-LIB Forge is built around a compiler-style idea: knowledge should be checked
