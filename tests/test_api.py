@@ -60,6 +60,7 @@ def test_builtin_examples_are_advanced_ready_and_idempotent(
     assert catalog.status_code == 200
     assert {item["id"] for item in catalog.json()} == {
         "biomedical-evidence-synthesis",
+        "dependency-security-intelligence",
         "medchem-lite",
         "production-incident-response",
     }
@@ -86,6 +87,19 @@ def test_builtin_examples_are_advanced_ready_and_idempotent(
     assert incident.status_code == 201
     assert incident.json()["library"]["source_count"] == 3
     assert incident.json()["library"]["eval_count"] == 3
+
+    security = client.post("/examples/dependency-security-intelligence/install")
+    assert security.status_code == 201
+    assert security.json()["library"]["source_count"] == 4
+    assert security.json()["library"]["eval_count"] == 3
+    assert security.json()["library"]["manifest"]["model_policy"]["allow_online_models"] is True
+
+    security_evals = client.post(
+        "/libraries/dependency-security-intelligence/eval",
+        json={"provider": "mock", "model": "offline-demo"},
+    )
+    assert security_evals.status_code == 200
+    assert all(item["score"] == 100 for item in security_evals.json())
 
     repeated = client.post("/examples/biomedical-evidence-synthesis/install")
     assert repeated.status_code == 201

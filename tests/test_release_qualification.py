@@ -52,6 +52,9 @@ def test_preview_registry_lists_flagship_and_demo_packages() -> None:
     packages = {item["id"]: item for item in registry["packages"]}
     assert packages["medchem-lite"]["knowledge_ir_version"] == "medchem-ir-preview.1"
     assert packages["medchem-lite"]["validator_profile"] == "rdkit-medchem-preview"
+    assert packages["dependency-security-intelligence"]["live_source"] == (
+        "https://api.osv.dev/v1/querybatch"
+    )
     assert packages["biology-core-reference"]["hermes_mcp"] == "klib_forge"
 
 

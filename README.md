@@ -52,6 +52,8 @@ Preview 2 already implements the practical core of that model:
 - MedChem-KLIB Lite with RDKit validation, descriptors, scaffolds, similarity
   search, duplicate identity review, evidence links, safety checks, and
   research-only boundaries
+- Dependency Security Intelligence with live OSV advisory collection, cited
+  findings, uncertainty rules, and local-model review
 - desktop installer that starts its bundled API sidecar and bootstraps
   MedChem-KLIB Lite into the local runtime
 
@@ -70,6 +72,9 @@ klib medchem compile --library medchem-lite
 klib medchem similar "CC(=O)Oc1ccccc1C(=O)O" --library medchem-lite
 klib medchem evidence-evals --library medchem-lite
 klib export medchem-lite.klib --library medchem-lite
+
+klib install-example dependency-security-intelligence
+klib security audit requirements\runtime-lock.txt
 ```
 
 ## Roadmap
@@ -284,6 +289,7 @@ batch APIs are outside this connector surface.
 - [Hermes Agent integration](docs/hermes-agent.md)
 - [Biology private-knowledge demo](docs/biology-private-knowledge-demo.md)
 - [MedChem-KLIB Lite](docs/medchem-lite.md)
+- [Dependency Security Intelligence](docs/dependency-security-intelligence.md)
 - [Private Anthropic knowledge collection](docs/anthropic-knowledge-collection.md)
 - [Known limitations](docs/known-limitations.md)
 - [Release process](docs/release.md)

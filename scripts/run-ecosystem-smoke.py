@@ -88,6 +88,7 @@ def check_registry(_run_dir: Path) -> dict[str, Any]:
     for package_id in (
         "biomedical-evidence-synthesis",
         "production-incident-response",
+        "dependency-security-intelligence",
         "medchem-lite",
         "biology-core-reference",
     ):
@@ -95,6 +96,7 @@ def check_registry(_run_dir: Path) -> dict[str, Any]:
     for package_id in (
         "biomedical-evidence-synthesis",
         "production-incident-response",
+        "dependency-security-intelligence",
         "medchem-lite",
     ):
         require(package_id in catalog, f"Missing built-in catalog package: {package_id}")

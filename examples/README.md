@@ -10,6 +10,8 @@ Available packages:
   citation-aware quantitative biology evals.
 - `production-incident-response`: an incident record, runbook, reliability
   policy, and three evidence-preserving response evals.
+- `dependency-security-intelligence`: live OSV advisory evidence for pinned
+  Python dependencies, with citation and uncertainty regression checks.
 
 List and install them with:
 
@@ -17,4 +19,5 @@ List and install them with:
 klib example-catalog
 klib install-example biomedical-evidence-synthesis
 klib install-example production-incident-response
+klib install-example dependency-security-intelligence
 ```

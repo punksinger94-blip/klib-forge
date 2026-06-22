@@ -15,6 +15,7 @@ from klib_core.benchmarks import (
     install_biology_benchmark,
     install_literature_biology_benchmark,
 )
+from klib_core.dependency_security import refresh_osv_evidence
 from klib_core.errors import KlibError
 from klib_core.examples import install_builtin_example, list_builtin_examples
 from klib_core.library import slugify
@@ -40,11 +41,13 @@ rule_app = typer.Typer(help="Manage K-LIB rules.")
 example_app = typer.Typer(help="Manage prompt examples.")
 profile_app = typer.Typer(help="Manage reusable model profiles.")
 medchem_app = typer.Typer(help="Build safe, research-only molecular evidence libraries.")
+security_app = typer.Typer(help="Collect and review cited dependency-security evidence.")
 app.add_typer(glossary_app, name="glossary")
 app.add_typer(rule_app, name="rule")
 app.add_typer(example_app, name="example")
 app.add_typer(profile_app, name="profile")
 app.add_typer(medchem_app, name="medchem")
+app.add_typer(security_app, name="security")
 
 
 for stream in (sys.stdout, sys.stderr):
@@ -487,6 +490,51 @@ def install_example(example_id: str) -> None:
     def action() -> None:
         created, path = install_builtin_example(manager(), example_id)
         emit({"created": created, "id": example_id, "path": str(path)})
+
+    run_command(action)
+
+
+@security_app.command("audit")
+def security_audit(
+    requirements: Path = typer.Argument(..., exists=True, readable=True),
+    library: str = typer.Option("dependency-security-intelligence", "--library", "-l"),
+    question: str | None = typer.Option(
+        None,
+        help="Optional question to ask a model after the live advisory evidence is compiled.",
+    ),
+    provider: str = typer.Option("ollama", help="Model provider for --question."),
+    model: str = typer.Option("gemma3", help="Model name for --question."),
+    base_url: str | None = typer.Option(None, help="Optional OpenAI-compatible endpoint."),
+    timeout: float = typer.Option(30, min=1, max=120, help="OSV request timeout in seconds."),
+    max_tokens: int = typer.Option(
+        600,
+        min=64,
+        max=4096,
+        help="Maximum tokens for the optional model answer.",
+    ),
+) -> None:
+    """Fetch live OSV evidence for pinned Python dependencies and compile it into K-LIB."""
+
+    def action() -> None:
+        created, library_path = install_builtin_example(manager(), library)
+        live = refresh_osv_evidence(manager(), library, requirements, timeout=timeout)
+        result: dict[str, Any] = {
+            "library_id": library,
+            "library_path": str(library_path),
+            "library_created": created,
+            **live,
+        }
+        if question:
+            answer = engine().ask(
+                library,
+                question,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                options={"temperature": 0, "max_tokens": max_tokens},
+            )
+            result["answer"] = answer.model_dump(mode="json")
+        emit(result)
 
     run_command(action)
 

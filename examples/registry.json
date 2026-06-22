@@ -11,8 +11,15 @@
       "knowledge_ir_version": "medchem-ir-preview.1",
       "validator_profile": "rdkit-medchem-preview",
       "docs": "docs/medchem-lite.md",
-      "example_path": "examples/medchem-lite",
-      "release_video": "dist/media/klib-forge-medchem-hermes-ab.mp4"
+      "example_path": "examples/medchem-lite"
+    },
+    {
+      "id": "dependency-security-intelligence",
+      "name": "Dependency Security Intelligence",
+      "domain": "software/dependency-security",
+      "status": "preview",
+      "docs": "docs/dependency-security-intelligence.md",
+      "live_source": "https://api.osv.dev/v1/querybatch"
     },
     {
       "id": "biomedical-evidence-synthesis",
